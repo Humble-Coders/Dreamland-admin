@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-brand-bg text-brand-text font-sans;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    @apply box-border;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-brand-surface;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-brand-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-brand-gold-dark;
+  }
+}
+
+@layer components {
+  .gold-text {
+    @apply text-brand-gold font-serif;
+  }
+
+  .section-card {
+    @apply bg-brand-card border border-brand-border rounded-xl p-5 cursor-pointer
+           transition-all duration-200 hover:border-brand-gold hover:shadow-gold;
+  }
+
+  .form-label {
+    @apply block text-xs font-medium text-brand-muted mb-1 uppercase tracking-wider;
+  }
+
+  .form-input {
+    @apply w-full bg-brand-surface border border-brand-border rounded-lg px-3 py-2.5
+           text-brand-text text-sm placeholder-brand-muted
+           focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold
+           transition-colors duration-150;
+  }
+
+  .form-input-error {
+    @apply border-brand-error focus:border-brand-error focus:ring-brand-error;
+  }
+
+  .dialog-overlay {
+    @apply fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+  }
+
+  .dialog-box {
+    @apply bg-brand-surface border border-brand-border rounded-2xl shadow-dialog
+           w-full max-w-2xl max-h-[90vh] overflow-y-auto;
+  }
+}
+
+/* Smooth page transitions */
+.page-enter {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 200ms, transform 200ms;
+}

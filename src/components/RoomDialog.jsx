@@ -1,0 +1,506 @@
+import { useState, useEffect } from 'react'
+import {
+  addDoc, updateDoc, doc, collection, serverTimestamp,
+} from 'firebase/firestore'
+import { db } from '../firebase'
+import { COLLECTIONS } from '../schema'
+import {
+  X, ChevronLeft, ChevronRight, Loader2, Save, Plus,
+  BedDouble, Settings2, IndianRupee, ShieldCheck, Images, Gift,
+} from 'lucide-react'
+import Input from './ui/Input'
+import Select from './ui/Select'
+import Button from './ui/Button'
+import toast from 'react-hot-toast'
+
+// ─── Tag / URL / Seasonal sub-inputs ─────────────────────────────────────────
+
+const AMENITY_SUGGESTIONS = [
+  'Air Conditioning', 'Free WiFi', 'Smart TV', 'Mini Bar', 'In-Room Safe',
+  'Hair Dryer', 'Bathrobe & Slippers', 'Iron & Board', 'Coffee Maker',
+  'Work Desk', 'Balcony', 'Private Pool', 'Jacuzzi', 'Rainfall Shower',
+  'Blackout Curtains', 'Room Service', 'Daily Housekeeping',
+]
+const ACCESSIBILITY_SUGGESTIONS = [
+  'Wheelchair Accessible', 'Elevator Access', 'Roll-in Shower',
+  'Grab Bars', 'Visual Alarms', 'Braille Signage', 'Wide Doorways',
+]
+const COMPLIMENTARY_SUGGESTIONS = [
+  'Breakfast Included', 'Welcome Drink', 'Evening Snacks',
+  'Newspaper', 'Airport Pickup', 'Early Check-in', 'Late Check-out',
+]
+const PURCHASABLE_SUGGESTIONS = [
+  'Spa Package', 'Romantic Room Setup', 'Decorated Room', 'Extra Bed',
+  'Airport Transfer', 'Private Dining', 'Bonfire Setup',
+]
+
+function TagInput({ label, value = [], onChange, placeholder, suggestions = [] }) {
+  const [input, setInput] = useState('')
+  function add(tag) {
+    const t = tag.trim()
+    if (t && !value.includes(t)) onChange([...value, t])
+    setInput('')
+  }
+  return (
+    <div className="space-y-2">
+      {label && <label className="form-label">{label}</label>}
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {value.map((t) => (
+            <span key={t} className="flex items-center gap-1 px-2.5 py-1 bg-brand-gold/10 border border-brand-gold/30 rounded-full text-brand-gold text-xs">
+              {t}
+              <button type="button" onClick={() => onChange(value.filter((x) => x !== t))} className="hover:opacity-70"><X size={11} /></button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <input className="form-input flex-1" placeholder={placeholder || 'Type and press Enter…'} value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(input) } }} />
+        <button type="button" disabled={!input.trim()} onClick={() => add(input)}
+          className="shrink-0 px-3 py-2 bg-brand-gold text-brand-bg rounded-lg text-sm font-medium hover:bg-brand-gold-light disabled:opacity-40 transition-colors">
+          Add
+        </button>
+      </div>
+      {suggestions.filter((s) => !value.includes(s)).length > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-0.5">
+          {suggestions.filter((s) => !value.includes(s)).map((s) => (
+            <button key={s} type="button" onClick={() => add(s)}
+              className="px-2.5 py-1 rounded-full border border-brand-border text-brand-muted hover:border-brand-gold hover:text-brand-gold text-xs transition-colors">
+              + {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function URLListInput({ label, value = [], onChange }) {
+  const [input, setInput] = useState('')
+  function add() {
+    const url = input.trim()
+    if (url && !value.includes(url)) onChange([...value, url])
+    setInput('')
+  }
+  return (
+    <div className="space-y-2">
+      {label && <label className="form-label">{label}</label>}
+      {value.length > 0 && (
+        <div className="space-y-1.5">
+          {value.map((url, i) => (
+            <div key={i} className="flex items-center gap-2 bg-brand-bg border border-brand-border rounded-lg px-3 py-2">
+              <span className="flex-1 text-xs text-brand-muted truncate">{url}</span>
+              <button type="button" onClick={() => onChange(value.filter((_, idx) => idx !== i))} className="shrink-0 text-brand-muted hover:text-brand-error transition-colors"><X size={13} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <input className="form-input flex-1" placeholder="https://…" value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} />
+        <button type="button" disabled={!input.trim()} onClick={add}
+          className="shrink-0 px-3 py-2 bg-brand-gold text-brand-bg rounded-lg text-sm font-medium hover:bg-brand-gold-light disabled:opacity-40 transition-colors">
+          Add
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Toggle({ label, description, checked, onChange }) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-2.5">
+      <div>
+        <p className="text-sm text-brand-text">{label}</p>
+        {description && <p className="text-xs text-brand-muted mt-0.5">{description}</p>}
+      </div>
+      <button type="button" onClick={() => onChange(!checked)}
+        className={`shrink-0 relative w-11 h-6 rounded-full transition-colors duration-200 ${checked ? 'bg-brand-gold' : 'bg-brand-border'}`}>
+        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
+      </button>
+    </div>
+  )
+}
+
+function SeasonalPricingInput({ value = [], onChange }) {
+  const [showForm, setShowForm] = useState(false)
+  const [entry, setEntry] = useState({ label: '', startDate: '', endDate: '', price: '' })
+
+  function addEntry() {
+    if (!entry.label || !entry.price) { toast.error('Season name and price required'); return }
+    onChange([...value, { label: entry.label, startDate: entry.startDate, endDate: entry.endDate, price: Number(entry.price) }])
+    setEntry({ label: '', startDate: '', endDate: '', price: '' })
+    setShowForm(false)
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="form-label">Seasonal Pricing</label>
+      {value.length > 0 && (
+        <div className="space-y-1.5">
+          {value.map((sp, i) => (
+            <div key={i} className="flex items-center gap-3 bg-brand-bg border border-brand-border rounded-xl px-4 py-2.5">
+              <div className="flex-1 min-w-0">
+                <p className="text-brand-text text-sm font-medium">{sp.label}</p>
+                {(sp.startDate || sp.endDate) && <p className="text-brand-muted text-xs mt-0.5">{sp.startDate}{sp.endDate ? ` → ${sp.endDate}` : ''}</p>}
+              </div>
+              <span className="text-brand-gold text-sm font-semibold shrink-0">₹{sp.price.toLocaleString('en-IN')}</span>
+              <button type="button" onClick={() => onChange(value.filter((_, idx) => idx !== i))} className="text-brand-muted hover:text-brand-error transition-colors"><X size={14} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      {showForm ? (
+        <div className="bg-brand-bg border border-brand-gold/30 rounded-xl p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Season Name" placeholder="e.g. Peak Summer" value={entry.label} onChange={(e) => setEntry((p) => ({ ...p, label: e.target.value }))} />
+            <Input label="Price / Night (₹)" type="number" placeholder="e.g. 8000" value={entry.price} onChange={(e) => setEntry((p) => ({ ...p, price: e.target.value }))} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Start Date" type="date" value={entry.startDate} onChange={(e) => setEntry((p) => ({ ...p, startDate: e.target.value }))} />
+            <Input label="End Date" type="date" value={entry.endDate} onChange={(e) => setEntry((p) => ({ ...p, endDate: e.target.value }))} />
+          </div>
+          <div className="flex gap-2">
+            <Button variant="primary" size="sm" onClick={addEntry}>Add Season</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setShowForm(false); setEntry({ label: '', startDate: '', endDate: '', price: '' }) }}>Cancel</Button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setShowForm(true)}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-brand-border hover:border-brand-gold text-brand-muted hover:text-brand-gold text-sm transition-colors">
+          <Plus size={14} /> Add Seasonal Price
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Steps ────────────────────────────────────────────────────────────────────
+
+const STEPS = [
+  { id: 'basic',        label: 'Basic Info',              description: 'Name, pricing and inventory',       icon: BedDouble },
+  { id: 'physical',     label: 'Room Physical Details',    description: 'Bed, size, view and bathroom',      icon: Settings2 },
+  { id: 'pricing',      label: 'Pricing & Availability',   description: 'Weekend rates and seasonal pricing', icon: IndianRupee },
+  { id: 'cancellation', label: 'Cancellation Policy',      description: 'Refund and cancellation terms',      icon: ShieldCheck },
+  { id: 'amenities',    label: 'Amenities & Media',        description: 'Room features and photos',           icon: Images },
+  { id: 'benefits',     label: 'Benefits',                 description: 'Complimentary and purchasable add-ons', icon: Gift },
+]
+
+function StepBasic({ form, set }) {
+  return (
+    <div className="space-y-4">
+      <Input label="Room Category Name" required placeholder="e.g. Deluxe Ocean View, Standard Room" value={form.name} onChange={(e) => set({ name: e.target.value })} />
+      <div>
+        <label className="form-label">Description</label>
+        <textarea className="form-input resize-none" rows={3} placeholder="Describe what makes this room special…" value={form.description} onChange={(e) => set({ description: e.target.value })} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Input label="Price per Night (₹)" required type="number" placeholder="e.g. 5000" value={form.price} onChange={(e) => set({ price: e.target.value })} />
+        <Input label="Tax (%)" type="number" placeholder="e.g. 18" value={form.tax} onChange={(e) => set({ tax: e.target.value })} />
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <Input label="Capacity" required type="number" placeholder="2" value={form.capacity} onChange={(e) => set({ capacity: e.target.value })} />
+        <Input label="Max Occupancy" type="number" placeholder="3" value={form.maxOccupancy} onChange={(e) => set({ maxOccupancy: e.target.value })} />
+        <Input label="No. of Rooms" type="number" placeholder="10" value={form.noOfRooms} onChange={(e) => set({ noOfRooms: e.target.value })} />
+      </div>
+      <div className="bg-brand-bg rounded-xl border border-brand-border px-4">
+        <Toggle label="Available for Booking" description="Guests can see and book this room" checked={form.available} onChange={(v) => set({ available: v })} />
+      </div>
+    </div>
+  )
+}
+
+function StepPhysical({ form, set }) {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <Select label="Bed Type" placeholder="Select" value={form.bedType} onChange={(e) => set({ bedType: e.target.value })} options={['single', 'twin', 'double', 'queen', 'king', 'bunk']} />
+        <Input label="Number of Beds" type="number" placeholder="e.g. 1" value={form.noOfBeds} onChange={(e) => set({ noOfBeds: e.target.value })} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Select label="View" placeholder="Select" value={form.view} onChange={(e) => set({ view: e.target.value })} options={['pool', 'garden', 'sea', 'city', 'mountain', 'courtyard']} />
+        <Select label="Bathroom Type" placeholder="Select" value={form.bathroomType} onChange={(e) => set({ bathroomType: e.target.value })} options={['attached', 'shared', 'en-suite']} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Input label="Room Size (sq ft)" type="number" placeholder="e.g. 350" value={form.roomSizeSqft} onChange={(e) => set({ roomSizeSqft: e.target.value })} />
+        <Input label="Floor" placeholder="e.g. 3rd floor" value={form.floor} onChange={(e) => set({ floor: e.target.value })} />
+      </div>
+      <div className="bg-brand-bg rounded-xl border border-brand-border px-4 divide-y divide-brand-border">
+        <Toggle label="Smoking Allowed" checked={form.smokingAllowed} onChange={(v) => set({ smokingAllowed: v })} />
+        <Toggle label="Connected Rooms Available" description="Can be joined with adjacent room" checked={form.connectedRooms} onChange={(v) => set({ connectedRooms: v })} />
+      </div>
+      <TagInput label="Accessibility Features" value={form.accessibilityFeatures} onChange={(v) => set({ accessibilityFeatures: v })} placeholder="e.g. Wheelchair Accessible" suggestions={ACCESSIBILITY_SUGGESTIONS} />
+    </div>
+  )
+}
+
+function StepPricing({ form, set }) {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <Input label="Extra Guest Charge (₹)" type="number" placeholder="e.g. 500" value={form.extraGuestCharge} onChange={(e) => set({ extraGuestCharge: e.target.value })} />
+        <Input label="Minimum Stay (nights)" type="number" placeholder="e.g. 1" value={form.minStayNights} onChange={(e) => set({ minStayNights: e.target.value })} />
+      </div>
+      <div>
+        <label className="form-label">Weekend Pricing (₹ / night)</label>
+        <div className="grid grid-cols-2 gap-3">
+          <Input placeholder="Friday price" type="number" value={form.weekendPricingFri} onChange={(e) => set({ weekendPricingFri: e.target.value })} />
+          <Input placeholder="Saturday price" type="number" value={form.weekendPricingSat} onChange={(e) => set({ weekendPricingSat: e.target.value })} />
+        </div>
+      </div>
+      <SeasonalPricingInput value={form.seasonalPricing} onChange={(v) => set({ seasonalPricing: v })} />
+    </div>
+  )
+}
+
+function StepCancellation({ form, set }) {
+  return (
+    <div className="space-y-4">
+      <div className="bg-brand-bg rounded-xl border border-brand-border px-4">
+        <Toggle label="Free Cancellation Available" checked={form.freeCancellation} onChange={(v) => set({ freeCancellation: v })} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Input label="Free Before Check-in (days)" type="number" placeholder="e.g. 3" value={form.cancellationFreeBefore} onChange={(e) => set({ cancellationFreeBefore: e.target.value })} />
+        <Input label="Refund Percentage (%)" type="number" placeholder="e.g. 100" value={form.cancellationRefundPercent} onChange={(e) => set({ cancellationRefundPercent: e.target.value })} />
+      </div>
+      <div>
+        <label className="form-label">Policy Note</label>
+        <textarea className="form-input resize-none" rows={3} placeholder="Any additional cancellation terms…" value={form.cancellationPolicyNote} onChange={(e) => set({ cancellationPolicyNote: e.target.value })} />
+      </div>
+    </div>
+  )
+}
+
+function StepAmenities({ form, set }) {
+  return (
+    <div className="space-y-5">
+      <TagInput label="Room Amenities" value={form.amenities} onChange={(v) => set({ amenities: v })} placeholder="e.g. Air Conditioning" suggestions={AMENITY_SUGGESTIONS} />
+      <URLListInput label="Photo URLs" value={form.media} onChange={(v) => set({ media: v })} />
+    </div>
+  )
+}
+
+function StepBenefits({ form, set }) {
+  return (
+    <div className="space-y-5">
+      <TagInput label="Complimentary Benefits" value={form.complimentaryBenefits} onChange={(v) => set({ complimentaryBenefits: v })} placeholder="e.g. Breakfast Included" suggestions={COMPLIMENTARY_SUGGESTIONS} />
+      <TagInput label="Purchasable Add-ons" value={form.purchasableBenefits} onChange={(v) => set({ purchasableBenefits: v })} placeholder="e.g. Spa Package" suggestions={PURCHASABLE_SUGGESTIONS} />
+    </div>
+  )
+}
+
+const STEP_COMPONENTS = [StepBasic, StepPhysical, StepPricing, StepCancellation, StepAmenities, StepBenefits]
+
+// ─── Default ──────────────────────────────────────────────────────────────────
+
+const DEFAULT_FORM = {
+  name: '', description: '',
+  capacity: '', maxOccupancy: '', price: '', tax: '', noOfRooms: '',
+  available: true,
+  bedType: '', noOfBeds: '', view: '', roomSizeSqft: '', floor: '',
+  bathroomType: '', smokingAllowed: false, accessibilityFeatures: [], connectedRooms: false,
+  extraGuestCharge: '', weekendPricingFri: '', weekendPricingSat: '',
+  minStayNights: '', seasonalPricing: [],
+  freeCancellation: false, cancellationFreeBefore: '',
+  cancellationRefundPercent: '', cancellationPolicyNote: '',
+  amenities: [], media: [],
+  complimentaryBenefits: [], purchasableBenefits: [],
+}
+
+function roomToForm(d) {
+  return {
+    name: d.name || '',
+    description: d.description || '',
+    capacity: d.capacity ?? '',
+    maxOccupancy: d.maxOccupancy ?? '',
+    price: d.price ?? '',
+    tax: d.tax ?? '',
+    noOfRooms: d.noOfRooms ?? '',
+    available: d.available !== undefined ? d.available : true,
+    bedType: d.bedType || '',
+    noOfBeds: d.noOfBeds ?? '',
+    view: d.view || '',
+    roomSizeSqft: d.roomSizeSqft ?? '',
+    floor: d.floor || '',
+    bathroomType: d.bathroomType || '',
+    smokingAllowed: d.smokingAllowed || false,
+    accessibilityFeatures: d.accessibilityFeatures || [],
+    connectedRooms: d.connectedRooms || false,
+    extraGuestCharge: d.extraGuestCharge ?? '',
+    weekendPricingFri: d.weekendPricing?.fri ?? '',
+    weekendPricingSat: d.weekendPricing?.sat ?? '',
+    minStayNights: d.minStayNights ?? '',
+    seasonalPricing: d.seasonalPricing || [],
+    freeCancellation: d.freeCancellation || false,
+    cancellationFreeBefore: d.cancellationPolicy?.freeBefore ?? '',
+    cancellationRefundPercent: d.cancellationPolicy?.refundPercent ?? '',
+    cancellationPolicyNote: d.cancellationPolicy?.policyNote || '',
+    amenities: d.amenities || [],
+    media: d.media || [],
+    complimentaryBenefits: d.complimentaryBenefits || [],
+    purchasableBenefits: d.purchasableBenefits || [],
+  }
+}
+
+// ─── Main Dialog ──────────────────────────────────────────────────────────────
+
+/**
+ * props:
+ *   hotelId   string
+ *   room      null (new) | { id, ...data } (edit)
+ *   onClose   () => void   — called after save or cancel
+ */
+export default function RoomDialog({ hotelId, room, onClose }) {
+  const isEdit = !!room?.id
+  const [form, setForm] = useState(() => (room ? roomToForm(room) : { ...DEFAULT_FORM }))
+  const [step, setStep] = useState(0)
+  const [saving, setSaving] = useState(false)
+
+  const isFirst = step === 0
+  const isLast = step === STEPS.length - 1
+
+  // Escape key to close
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  function set(patch) { setForm((p) => ({ ...p, ...patch })) }
+
+  function num(v) {
+    const n = Number(v)
+    return isNaN(n) || v === '' ? null : n
+  }
+
+  function validateStep() {
+    if (step === 0) {
+      if (!form.name.trim()) { toast.error('Room category name is required'); return false }
+      if (form.price === '' || form.price === null) { toast.error('Price per night is required'); return false }
+      if (!form.capacity) { toast.error('Capacity is required'); return false }
+    }
+    return true
+  }
+
+  function handleNext() {
+    setStep((s) => s + 1)
+  }
+
+  async function handleSave() {
+    if (!validateStep()) return
+    setSaving(true)
+    try {
+      const payload = {
+        hotelId,
+        name: form.name.trim(),
+        description: form.description || null,
+        capacity: num(form.capacity),
+        maxOccupancy: num(form.maxOccupancy),
+        price: num(form.price),
+        tax: num(form.tax),
+        noOfRooms: num(form.noOfRooms),
+        bedType: form.bedType || null,
+        noOfBeds: num(form.noOfBeds),
+        view: form.view || null,
+        roomSizeSqft: num(form.roomSizeSqft),
+        floor: form.floor || null,
+        bathroomType: form.bathroomType || null,
+        available: form.available,
+        smokingAllowed: form.smokingAllowed,
+        accessibilityFeatures: form.accessibilityFeatures,
+        connectedRooms: form.connectedRooms,
+        extraGuestCharge: num(form.extraGuestCharge),
+        weekendPricing: { fri: num(form.weekendPricingFri), sat: num(form.weekendPricingSat) },
+        minStayNights: num(form.minStayNights),
+        seasonalPricing: form.seasonalPricing,
+        freeCancellation: form.freeCancellation,
+        cancellationPolicy: {
+          freeBefore: num(form.cancellationFreeBefore),
+          refundPercent: num(form.cancellationRefundPercent),
+          policyNote: form.cancellationPolicyNote || null,
+        },
+        amenities: form.amenities,
+        media: form.media,
+        complimentaryBenefits: form.complimentaryBenefits,
+        purchasableBenefits: form.purchasableBenefits,
+        updatedAt: serverTimestamp(),
+      }
+
+      if (isEdit) {
+        await updateDoc(doc(db, COLLECTIONS.rooms, room.id), payload)
+        toast.success('Room category updated')
+      } else {
+        payload.createdAt = serverTimestamp()
+        await addDoc(collection(db, COLLECTIONS.rooms), payload)
+        toast.success('Room category created')
+      }
+      onClose()
+    } catch (err) {
+      toast.error('Save failed: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const CurrentStep = STEP_COMPONENTS[step]
+  const meta = STEPS[step]
+  const StepIcon = meta.icon
+
+  return (
+    <div className="dialog-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="dialog-box">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border sticky top-0 bg-brand-surface z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-brand-gold/10 border border-brand-gold/20 flex items-center justify-center shrink-0">
+              <StepIcon size={18} className="text-brand-gold" />
+            </div>
+            <div>
+              <h2 className="font-serif text-brand-gold text-xl font-semibold leading-tight">{meta.label}</h2>
+              <p className="text-brand-muted text-xs">{meta.description}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-brand-muted hover:text-brand-text p-1.5 rounded-lg hover:bg-brand-card transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Step indicator */}
+        <div className="flex items-center gap-1 px-6 pt-4">
+          {STEPS.map((s, i) => (
+            <button key={s.id} onClick={() => setStep(i)} title={s.label}
+              className={`h-1.5 rounded-full transition-all flex-1 ${
+                i === step ? 'bg-brand-gold' : i < step ? 'bg-brand-gold/40' : 'bg-brand-border'
+              }`} />
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="px-6 py-5">
+          <CurrentStep form={form} set={set} />
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-brand-border sticky bottom-0 bg-brand-surface">
+          <Button variant="ghost" size="md" disabled={isFirst} onClick={() => setStep((s) => s - 1)}>
+            <ChevronLeft size={16} /> Previous
+          </Button>
+          <span className="text-brand-muted text-xs shrink-0">{step + 1} / {STEPS.length}</span>
+          {isLast ? (
+            <Button variant="primary" size="md" loading={saving} onClick={handleSave}>
+              <Save size={15} />
+              {isEdit ? 'Save Changes' : 'Create Room'}
+            </Button>
+          ) : (
+            <Button variant="primary" size="md" onClick={handleNext}>
+              Next <ChevronRight size={16} />
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

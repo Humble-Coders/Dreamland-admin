@@ -1,0 +1,234 @@
+// ============================================================
+//  src/schema.js — SINGLE SOURCE OF TRUTH FOR FIRESTORE SCHEMA
+//
+//  When you change a field:
+//    1. Update the relevant SCHEMA constant below
+//    2. Update SCHEMA.md (run `npm run schema` or edit manually)
+//
+//  All field shapes, required flags, and default values live here.
+//  Form sections, hooks, and Firestore writes import from this file.
+// ============================================================
+
+// ---------- HOTEL DOCUMENT ----------
+export const HOTEL_SCHEMA = {
+  // ── Basic Info ──────────────────────────────────────────────
+  name: { type: 'string', required: true, label: 'Hotel Name' },
+  description: { type: 'string', required: false, label: 'Description' },
+  hotelType: {
+    type: 'enum',
+    required: true,
+    label: 'Hotel Type',
+    options: ['resort', 'boutique', 'hostel', 'villa', 'homestay'],
+  },
+  starRating: { type: 'number', required: true, label: 'Star Rating', min: 1, max: 5 },
+  isActive: { type: 'boolean', required: false, default: true, label: 'Active' },
+  isLuxury: { type: 'boolean', required: false, default: false, label: 'Luxury Property' },
+  totalRooms: { type: 'number', required: false, label: 'Total Rooms' },
+
+  // ── Contact ──────────────────────────────────────────────────
+  contactPhone: { type: 'string', required: true, label: 'Phone Number' },
+  contactEmail: { type: 'string', required: true, label: 'Email Address' },
+  socialLinks: { type: 'string', required: false, label: 'Social Media Links' },
+  website: { type: 'string', required: false, label: 'Website URL' },
+
+  // ── Check-in / Check-out ─────────────────────────────────────
+  checkInTime: { type: 'string', required: true, label: 'Check-In Time' },
+  checkOutTime: { type: 'string', required: true, label: 'Check-Out Time' },
+  earlyCheckInFee: { type: 'boolean', required: false, default: false, label: 'Early Check-In Fee' },
+  lateCheckOutFee: { type: 'boolean', required: false, default: false, label: 'Late Check-Out Fee' },
+
+  // ── Location ──────────────────────────────────────────────────
+  address: { type: 'string', required: true, label: 'Street Address' },
+  city: { type: 'string', required: true, label: 'City' },
+  country: { type: 'string', required: true, label: 'Country' },
+  pincode: { type: 'string', required: false, label: 'Pincode / ZIP' },
+  // GeoPoint stored separately as { latitude: number, longitude: number }
+  latitude: { type: 'number', required: false, label: 'Latitude' },
+  longitude: { type: 'number', required: false, label: 'Longitude' },
+
+  // ── Media ─────────────────────────────────────────────────────
+  // photos: array of Firebase Storage URLs
+  photos: { type: 'array', required: true, minItems: 1, label: 'Photos', itemType: 'string' },
+
+  // ── Transport ─────────────────────────────────────────────────
+  // modes: array of transport objects
+  modes: {
+    type: 'array',
+    required: false,
+    label: 'Transport Modes',
+    itemSchema: {
+      category: { type: 'enum', options: ['bus', 'train', 'airport', 'metro'], label: 'Category' },
+      name: { type: 'string', label: 'Name / Station' },
+      distance: { type: 'string', label: 'Distance (text)' },
+      distanceInKm: { type: 'number', label: 'Distance (km)' },
+      detailed: { type: 'string', label: 'Description' },
+      cab: { type: 'boolean', label: 'Cab Available' },
+      auto: { type: 'boolean', label: 'Auto Available' },
+    },
+  },
+
+  // ── Food & Dining ──────────────────────────────────────────────
+  mealPlansAvailable: {
+    type: 'array',
+    required: false,
+    label: 'Meal Plans',
+    options: ['Breakfast', 'FullBoard', 'HB', 'RO'],
+  },
+  foodInclusivity: { type: 'boolean', required: false, default: false, label: 'Vegetarian / Inclusive Menu' },
+
+  // ── Parking ───────────────────────────────────────────────────
+  parkingAvailable: { type: 'boolean', required: false, default: false, label: 'Parking Available' },
+  parkingType: {
+    type: 'enum',
+    required: false,
+    label: 'Parking Type',
+    options: ['covered', 'shared', 'guest', 'valet'],
+  },
+  parkingSpots: { type: 'number', required: false, label: 'Total Parking Spots' },
+
+  // ── Property Highlights ───────────────────────────────────────
+  highlights: {
+    type: 'array',
+    required: false,
+    label: 'Property Highlights',
+    itemSchema: {
+      title: { type: 'string', label: 'Highlight Title' },
+      category: {
+        type: 'enum',
+        options: ['hotel', 'shared', 'outdoor', 'cultural', 'water'],
+        label: 'Category',
+      },
+      amenityType: { type: 'enum', options: ['basic', 'shared'], label: 'Amenity Type' },
+    },
+  },
+
+  // ── Policies & Compliance ─────────────────────────────────────
+  pdfRequired: { type: 'boolean', required: false, default: false, label: 'ID/PDF Required at Check-in' },
+  privacyPremium: { type: 'boolean', required: false, default: false, label: 'Privacy Premium Room' },
+  ageRestriction: { type: 'number', required: false, label: 'Minimum Age Restriction' },
+  petPolicy: { type: 'boolean', required: false, default: false, label: 'Pets Allowed' },
+
+  // ── Ratings (read-only — updated by Cloud Functions) ──────────
+  averageRating: { type: 'number', readOnly: true, label: 'Average Rating' },
+  totalReviews: { type: 'number', readOnly: true, label: 'Total Reviews' },
+  ratingBreakdown: {
+    type: 'object',
+    readOnly: true,
+    label: 'Rating Breakdown',
+    fields: {
+      cleanliness: { type: 'number' },
+      food: { type: 'number' },
+      staff: { type: 'number' },
+      location: { type: 'number' },
+      value: { type: 'number' },
+    },
+  },
+
+  // ── Meta ──────────────────────────────────────────────────────
+  status: {
+    type: 'enum',
+    required: false,
+    default: 'draft',
+    options: ['active', 'inactive', 'draft'],
+    label: 'Status',
+  },
+  openingDate: { type: 'timestamp', required: false, label: 'Opening Date' },
+  closingDate: { type: 'timestamp', required: false, label: 'Closing Date' },
+  createdAt: { type: 'timestamp', readOnly: true, label: 'Created At' },
+  updatedAt: { type: 'timestamp', readOnly: true, label: 'Updated At' },
+};
+
+// ---------- CONFIG DOCUMENT ----------
+export const CONFIG_SCHEMA = {
+  document: { type: 'string', label: 'Document URL' },
+  support: { type: 'string', label: 'Support URL' },
+  privacyCenter: { type: 'string', label: 'Privacy Center URL' },
+  termsAndConditions: { type: 'string', label: 'Terms & Conditions URL' },
+  footerPage: { type: 'string', label: 'Footer Page Content' },
+  carousel: { type: 'boolean', label: 'Show Carousel' },
+};
+
+// ---------- REVIEW DOCUMENT (subcollection of hotels) ----------
+export const REVIEW_SCHEMA = {
+  hotelId: { type: 'string', required: true, label: 'Hotel ID' },
+  userId: { type: 'string', required: true, label: 'User ID' },
+  rating: { type: 'number', required: true, min: 1, max: 5, label: 'Overall Rating' },
+  cleanliness: { type: 'number', min: 0, max: 5, label: 'Cleanliness' },
+  food: { type: 'number', min: 0, max: 5, label: 'Food' },
+  staff: { type: 'number', min: 0, max: 5, label: 'Staff' },
+  location: { type: 'number', min: 0, max: 5, label: 'Location' },
+  value: { type: 'number', min: 0, max: 5, label: 'Value' },
+  comment: { type: 'string', label: 'Comment' },
+  createdAt: { type: 'timestamp', readOnly: true, label: 'Created At' },
+};
+
+// ---------- REQUIRED FIELDS PER SECTION (for wizard validation) ----------
+export const SECTION_REQUIRED_FIELDS = {
+  basicInfo: ['name', 'hotelType', 'starRating'],
+  contact: ['contactPhone', 'contactEmail'],
+  checkInOut: ['checkInTime', 'checkOutTime'],
+  location: ['address', 'city', 'country'],
+  media: ['photos'],
+  transport: [],
+  foodDining: [],
+  parking: [],
+  propertyHighlights: [],
+  policiesCompliance: [],
+  // sub-collection sections use hotelId-based Firestore writes, not hotel doc fields
+  attractions: [],
+  categories: [],
+  activity: [],
+  reviews: [],
+};
+
+// ---------- FIRESTORE COLLECTION NAMES ----------
+export const COLLECTIONS = {
+  hotels: 'hotels',
+  config: 'config',
+  reviews: 'reviews',
+  attractions: 'attractions',
+  categories: 'categories',
+  travelList: 'travelList',
+  rooms: 'rooms',
+  // Lookup / reference collections
+  parkingTypes: 'parkingTypes',
+  parkingCategories: 'parkingCategories',
+  attractionCategories: 'attractionCategories',
+  highlightCategories: 'highlightCategories',
+  amenityTypes: 'amenityTypes',
+};
+
+// ---------- ATTRACTION DOCUMENT ----------
+export const ATTRACTION_SCHEMA = {
+  hotelId: { type: 'string', required: true, label: 'Hotel ID' },
+  name: { type: 'string', required: true, label: 'Attraction Name' },
+  category: {
+    type: 'enum',
+    required: true,
+    label: 'Category',
+    options: ['religious', 'nature', 'shopping', 'food', 'heritage', 'adventure'],
+  },
+  pictureable: { type: 'boolean', required: false, default: false, label: 'Photo Spot' },
+  description: { type: 'string', required: false, label: 'Description / Travel Info' },
+  media: { type: 'string', required: false, label: 'Photo URL' },
+};
+
+// ---------- CATEGORY DOCUMENT ----------
+export const CATEGORY_SCHEMA = {
+  hotelId: { type: 'string', required: true, label: 'Hotel ID' },
+  name: { type: 'string', required: true, label: 'Category Name' },
+  icon: { type: 'string', required: false, label: 'Icon (emoji)' },
+  description: { type: 'string', required: false, label: 'Description' },
+};
+
+// ---------- TRAVEL LIST / ACTIVITY DOCUMENT ----------
+export const TRAVEL_LIST_SCHEMA = {
+  hotelId: { type: 'string', required: true, label: 'Hotel ID' },
+  title: { type: 'string', required: true, label: 'Activity Title' },
+  description: { type: 'string', required: false, label: 'Description' },
+  category: { type: 'string', required: false, label: 'Category' },
+  duration: { type: 'string', required: false, label: 'Duration' },
+  price: { type: 'number', required: false, label: 'Price (₹)' },
+  included: { type: 'boolean', required: false, default: false, label: 'Included in Package' },
+  media: { type: 'string', required: false, label: 'Photo URL' },
+};
