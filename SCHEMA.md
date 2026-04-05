@@ -3,7 +3,7 @@
 > **Source of truth:** `src/schema.js`
 > This file mirrors the schema in human-readable form.
 > When you update `src/schema.js`, update this file too.
-> Last updated: 2026-03-31
+> Last updated: 2026-04-04
 
 ---
 
@@ -73,7 +73,8 @@ Each item in `modes`:
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
 | `parkingAvailable` | boolean | — | Default: `false` |
-| `parkingType` | enum | — | `covered` \| `shared` \| `guest` \| `valet` |
+| `parkingType` | string | — | Name from `parkingTypes` lookup — e.g. `covered`, `shared`, `guest`, `valet`, `paid`, `free` |
+| `parkingCategory` | string | — | Name from `parkingCategories` lookup — e.g. `basement`, `surface`, `multi-level`, `rooftop`, `street`, `indoor` |
 | `parkingSpots` | number | — | Total spots |
 
 ### Property Highlights (`highlights` array)
@@ -81,8 +82,8 @@ Each item:
 | Field | Type | Notes |
 |-------|------|-------|
 | `title` | string | Highlight name |
-| `category` | enum | `hotel` \| `shared` \| `outdoor` \| `cultural` \| `water` |
-| `amenityType` | enum | `basic` \| `shared` |
+| `category` | string | Name from `highlightCategories` lookup — e.g. `hotel`, `shared`, `outdoor`, `cultural`, `water`, `wellness`, `entertainment` |
+| `amenityType` | string | Name from `amenityTypes` lookup — e.g. `basic`, `shared`, `premium`, `exclusive` |
 
 ### Policies & Compliance
 | Field | Type | Required | Notes |
@@ -139,6 +140,119 @@ Each item:
 | `value` | number | — | 0–5 |
 | `comment` | string | — | Text review |
 | `createdAt` | timestamp | — | Auto-set |
+
+---
+
+## Collection: `rooms` *(Room Categories)*
+Top-level collection; documents reference a hotel via `hotelId`. Each doc represents a room type/category.
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `hotelId` | string | ✅ | Parent hotel ID |
+| `name` | string | ✅ | Room category name e.g. "Deluxe Suite" |
+| `description` | string | — | Optional description |
+| `capacity` | number | ✅ | Default guest capacity |
+| `maxOccupancy` | number | — | Max allowed guests |
+| `price` | number | ✅ | Base price per night (₹) |
+| `tax` | number | — | Tax percentage |
+| `available` | boolean | — | Default: `true` |
+| `bedType` | enum | — | `single` \| `twin` \| `double` \| `queen` \| `king` \| `bunk` |
+| `noOfBeds` | number | — | Number of beds |
+| `view` | string | — | e.g. "Sea View", "Garden View" |
+| `roomSizeSqft` | number | — | Room size in sqft |
+| `floor` | string | — | Default floor e.g. "3rd floor" |
+| `bathroomType` | string | — | e.g. "Attached", "Shared" |
+| `smokingAllowed` | boolean | — | Default: `false` |
+| `accessibilityFeatures` | string[] | — | e.g. `["Wheelchair Accessible"]` |
+| `connectedRooms` | boolean | — | Default: `false` |
+| `extraGuestCharge` | number | — | Charge per extra guest (₹) |
+| `weekendPricing` | object | — | `{ fri: number, sat: number }` prices in ₹ |
+| `minStayNights` | number | — | Minimum booking nights |
+| `seasonalPricing` | array | — | `[{ label, from (MM-DD), to (MM-DD), price }]` |
+| `freeCancellation` | boolean | — | Default: `false` |
+| `cancellationPolicy` | object | — | `{ freeBefore (hours), refundPercent, policyNote }` |
+| `amenities` | string[] | — | List of amenity strings |
+| `media` | string[] | — | Firebase Storage photo URLs |
+| `complimentaryBenefits` | string[] | — | Included extras e.g. "Breakfast Included" |
+| `purchasableBenefits` | string[] | — | Add-ons e.g. "Spa Package" |
+| `createdAt` | timestamp | — | Auto-set on create |
+| `updatedAt` | timestamp | — | Auto-set on update |
+
+---
+
+## Collection: `roomInstances`
+Individual physical rooms. Each doc is one room number, referencing its category.
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `hotelId` | string | ✅ | Parent hotel ID |
+| `categoryId` | string | ✅ | Reference to `rooms` doc |
+| `roomNumber` | string | ✅ | Physical room identifier e.g. "101" |
+| `overrides` | object | — | Per-room field overrides (see below) |
+| `createdAt` | timestamp | — | Auto-set on create |
+
+### `overrides` object (all fields optional)
+| Field | Type | Notes |
+|-------|------|-------|
+| `amenities` | string[] | Replaces category amenities for this room |
+| `smokingAllowed` | boolean | Overrides category default |
+| `available` | boolean | Mark individual room unavailable |
+| `floor` | string | Overrides category floor |
+| `notes` | string | Internal notes for this room |
+
+---
+
+## Collection: `attractions`
+Top-level collection; documents reference a hotel via `hotelId`.
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `hotelId` | string | ✅ | Parent hotel ID |
+| `name` | string | ✅ | Attraction name |
+| `categoryId` | string | ✅ | Reference to `attractionCategories` doc |
+| `category` | string | ✅ | Denormalised name from `attractionCategories` |
+| `description` | string | — | Travel info / description |
+| `pictureable` | boolean | — | Good photo spot |
+| `media` | string | — | Photo URL |
+| `createdAt` | timestamp | — | Auto-set on create |
+
+---
+
+## Collection: `categories`
+Hotel tag/category labels (e.g. Family-Friendly, Romantic). Top-level collection referencing a hotel.
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `hotelId` | string | ✅ | Parent hotel ID |
+| `name` | string | ✅ | Category label |
+| `icon` | string | — | Emoji icon |
+| `description` | string | — | Optional description |
+| `createdAt` | timestamp | — | Auto-set on create |
+
+---
+
+## Collection: `travelList` *(Activities)*
+Activities / experiences offered by or near the hotel.
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `hotelId` | string | ✅ | Parent hotel ID |
+| `title` | string | ✅ | Activity name |
+| `category` | string | — | e.g. `adventure`, `leisure`, `cultural`, `wellness`, `water sports`, `trekking`, `sightseeing`, `food tour` |
+| `description` | string | — | Brief description |
+| `duration` | string | — | Human-readable e.g. "2 hours" |
+| `price` | number | — | Price in ₹; `null` if free |
+| `included` | boolean | — | Included in hotel package |
+| `media` | string | — | Photo URL |
+| `createdAt` | timestamp | — | Auto-set on create |
+
+---
+
+## Lookup Collections
+Seeded automatically on first use. Each document has a `name` field and `createdAt` timestamp.
+
+| Collection | Default Seed Values |
+|------------|---------------------|
+| `parkingTypes` | `covered`, `shared`, `guest`, `valet`, `paid`, `free` |
+| `parkingCategories` | `basement`, `surface`, `multi-level`, `rooftop`, `street`, `indoor` |
+| `highlightCategories` | `hotel`, `shared`, `outdoor`, `cultural`, `water`, `wellness`, `entertainment` |
+| `amenityTypes` | `basic`, `shared`, `premium`, `exclusive` |
+| `attractionCategories` | `religious`, `nature`, `shopping`, `food`, `heritage`, `adventure` |
 
 ---
 

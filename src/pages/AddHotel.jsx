@@ -90,6 +90,16 @@ function validateAll(data) {
   return allErrors
 }
 
+// Strip lookup-reference IDs before writing to Firestore.
+// The actual value (name) is already stored in the sibling field without the "Id" suffix.
+function prepareForSave(data) {
+  const { parkingTypeId, parkingCategoryId, ...rest } = data
+  if (rest.highlights) {
+    rest.highlights = rest.highlights.map(({ categoryId, amenityTypeId, ...h }) => h)
+  }
+  return rest
+}
+
 function formatDate(ts) {
   if (!ts) return ''
   try {
@@ -227,7 +237,8 @@ function AddHotelEditor({ initialHotelId }) {
 
   // Auto-save: create doc on first save if new, otherwise update
   const performAutoSave = useCallback(async (data) => {
-    const { draftCategories, draftAttractions, draftActivities, ...hotelFields } = data
+    const { draftCategories, draftAttractions, draftActivities, ...raw } = data
+    const hotelFields = prepareForSave(raw)
     try {
       setAutoSaving(true)
       if (hotelId) {
@@ -316,7 +327,8 @@ function AddHotelEditor({ initialHotelId }) {
       if (!isDirtyRef.current) return
       const data = pendingSaveData.current
       if (!data) return
-      const { draftCategories, draftAttractions, draftActivities, ...hotelFields } = data
+      const { draftCategories, draftAttractions, draftActivities, ...raw } = data
+      const hotelFields = prepareForSave(raw)
       if (hotelIdRef.current) {
         // Fire-and-forget: saves to Firestore when navigating away
         updateDoc(doc(db, COLLECTIONS.hotels, hotelIdRef.current), {
@@ -347,7 +359,8 @@ function AddHotelEditor({ initialHotelId }) {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
     setPublishing(true)
     try {
-      const { draftCategories, draftAttractions, draftActivities, ...hotelFields } = formData
+      const { draftCategories, draftAttractions, draftActivities, ...raw } = formData
+      const hotelFields = prepareForSave(raw)
 
       if (hotelId) {
         await updateDoc(doc(db, COLLECTIONS.hotels, hotelId), {

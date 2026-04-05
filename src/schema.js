@@ -190,6 +190,7 @@ export const COLLECTIONS = {
   categories: 'categories',
   travelList: 'travelList',
   rooms: 'rooms',
+  roomInstances: 'roomInstances',
   // Lookup / reference collections
   parkingTypes: 'parkingTypes',
   parkingCategories: 'parkingCategories',
@@ -219,6 +220,78 @@ export const CATEGORY_SCHEMA = {
   name: { type: 'string', required: true, label: 'Category Name' },
   icon: { type: 'string', required: false, label: 'Icon (emoji)' },
   description: { type: 'string', required: false, label: 'Description' },
+};
+
+// ---------- ROOM CATEGORY DOCUMENT (subcollection-like, top-level with hotelId) ----------
+export const ROOM_SCHEMA = {
+  hotelId: { type: 'string', required: true, label: 'Hotel ID' },
+  name: { type: 'string', required: true, label: 'Room Category Name' },
+  description: { type: 'string', required: false, label: 'Description' },
+  capacity: { type: 'number', required: true, label: 'Capacity (guests)' },
+  maxOccupancy: { type: 'number', required: false, label: 'Max Occupancy' },
+  price: { type: 'number', required: true, label: 'Price per Night (₹)' },
+  tax: { type: 'number', required: false, label: 'Tax (%)' },
+  available: { type: 'boolean', required: false, default: true, label: 'Available for Booking' },
+  bedType: { type: 'enum', required: false, options: ['single', 'twin', 'double', 'queen', 'king', 'bunk'], label: 'Bed Type' },
+  noOfBeds: { type: 'number', required: false, label: 'Number of Beds' },
+  view: { type: 'string', required: false, label: 'Room View' },
+  roomSizeSqft: { type: 'number', required: false, label: 'Room Size (sqft)' },
+  floor: { type: 'string', required: false, label: 'Floor' },
+  bathroomType: { type: 'string', required: false, label: 'Bathroom Type' },
+  smokingAllowed: { type: 'boolean', required: false, default: false, label: 'Smoking Allowed' },
+  accessibilityFeatures: { type: 'array', required: false, label: 'Accessibility Features', itemType: 'string' },
+  connectedRooms: { type: 'boolean', required: false, default: false, label: 'Connected Rooms Available' },
+  extraGuestCharge: { type: 'number', required: false, label: 'Extra Guest Charge (₹)' },
+  weekendPricing: {
+    type: 'object', required: false, label: 'Weekend Pricing',
+    fields: {
+      fri: { type: 'number', label: 'Friday Price (₹)' },
+      sat: { type: 'number', label: 'Saturday Price (₹)' },
+    },
+  },
+  minStayNights: { type: 'number', required: false, label: 'Min Stay (nights)' },
+  seasonalPricing: {
+    type: 'array', required: false, label: 'Seasonal Pricing',
+    itemSchema: {
+      label: { type: 'string', label: 'Season Label' },
+      from: { type: 'string', label: 'From (MM-DD)' },
+      to: { type: 'string', label: 'To (MM-DD)' },
+      price: { type: 'number', label: 'Price (₹)' },
+    },
+  },
+  freeCancellation: { type: 'boolean', required: false, default: false, label: 'Free Cancellation' },
+  cancellationPolicy: {
+    type: 'object', required: false, label: 'Cancellation Policy',
+    fields: {
+      freeBefore: { type: 'number', label: 'Free Before (hours)' },
+      refundPercent: { type: 'number', label: 'Refund Percent' },
+      policyNote: { type: 'string', label: 'Policy Note' },
+    },
+  },
+  amenities: { type: 'array', required: false, label: 'Amenities', itemType: 'string' },
+  media: { type: 'array', required: false, label: 'Photos', itemType: 'string' },
+  complimentaryBenefits: { type: 'array', required: false, label: 'Complimentary Benefits', itemType: 'string' },
+  purchasableBenefits: { type: 'array', required: false, label: 'Purchasable Benefits', itemType: 'string' },
+  createdAt: { type: 'timestamp', readOnly: true, label: 'Created At' },
+  updatedAt: { type: 'timestamp', readOnly: true, label: 'Updated At' },
+};
+
+// ---------- ROOM INSTANCE DOCUMENT ----------
+export const ROOM_INSTANCE_SCHEMA = {
+  hotelId: { type: 'string', required: true, label: 'Hotel ID' },
+  categoryId: { type: 'string', required: true, label: 'Room Category ID' },
+  roomNumber: { type: 'string', required: true, label: 'Room Number' },
+  overrides: {
+    type: 'object', required: false, label: 'Per-Room Overrides',
+    fields: {
+      amenities: { type: 'array', label: 'Amenities override', itemType: 'string' },
+      smokingAllowed: { type: 'boolean', label: 'Smoking override' },
+      available: { type: 'boolean', label: 'Availability override' },
+      floor: { type: 'string', label: 'Floor override' },
+      notes: { type: 'string', label: 'Internal notes' },
+    },
+  },
+  createdAt: { type: 'timestamp', readOnly: true, label: 'Created At' },
 };
 
 // ---------- TRAVEL LIST / ACTIVITY DOCUMENT ----------

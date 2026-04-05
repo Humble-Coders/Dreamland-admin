@@ -6,6 +6,7 @@ import AddHotel from './pages/AddHotel'
 import OpeningDate from './pages/OpeningDate'
 import RoomCategories from './pages/RoomCategories'
 import HotelDetail from './pages/HotelDetail'
+import AppSettings from './pages/AppSettings'
 import { useState, useCallback } from 'react'
 
 export default function App() {
@@ -51,6 +52,7 @@ export default function App() {
             <Route path="/opening-date" element={<OpeningDate />} />
             <Route path="/add-hotel/rooms/:hotelId" element={<RoomCategories />} />
             <Route path="/hotels/:hotelId" element={<HotelDetail />} />
+            <Route path="/app-settings" element={<AppSettings />} />
             <Route path="*" element={<Navigate to="/hotels" replace />} />
           </Routes>
         </main>

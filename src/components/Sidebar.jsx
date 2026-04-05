@@ -1,11 +1,12 @@
 import { memo } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Hotel, PlusCircle, CalendarDays, X } from 'lucide-react'
+import { Hotel, PlusCircle, CalendarDays, Settings, X } from 'lucide-react'
 
 const NAV_ITEMS = [
   { to: '/hotels', label: 'Hotels', icon: Hotel },
   { to: '/add-hotel', label: 'Add Hotel', icon: PlusCircle },
   { to: '/opening-date', label: 'Opening Date', icon: CalendarDays },
+  { to: '/app-settings', label: 'App Settings', icon: Settings },
 ]
 
 

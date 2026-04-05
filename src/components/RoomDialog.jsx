@@ -1,19 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
-  addDoc, updateDoc, doc, collection, serverTimestamp,
+  addDoc, updateDoc, doc, collection, serverTimestamp, writeBatch,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { COLLECTIONS } from '../schema'
 import {
   X, ChevronLeft, ChevronRight, Loader2, Save, Plus,
   BedDouble, Settings2, IndianRupee, ShieldCheck, Images, Gift,
+  CheckCircle2, Hash,
 } from 'lucide-react'
 import Input from './ui/Input'
 import Select from './ui/Select'
 import Button from './ui/Button'
 import toast from 'react-hot-toast'
 
-// ─── Tag / URL / Seasonal sub-inputs ─────────────────────────────────────────
+// ─── Suggestions ──────────────────────────────────────────────────────────────
 
 const AMENITY_SUGGESTIONS = [
   'Air Conditioning', 'Free WiFi', 'Smart TV', 'Mini Bar', 'In-Room Safe',
@@ -33,6 +34,8 @@ const PURCHASABLE_SUGGESTIONS = [
   'Spa Package', 'Romantic Room Setup', 'Decorated Room', 'Extra Bed',
   'Airport Transfer', 'Private Dining', 'Bonfire Setup',
 ]
+
+// ─── Shared sub-components ────────────────────────────────────────────────────
 
 function TagInput({ label, value = [], onChange, placeholder, suggestions = [] }) {
   const [input, setInput] = useState('')
@@ -178,16 +181,18 @@ function SeasonalPricingInput({ value = [], onChange }) {
   )
 }
 
-// ─── Steps ────────────────────────────────────────────────────────────────────
+// ─── Step definitions ─────────────────────────────────────────────────────────
 
 const STEPS = [
-  { id: 'basic',        label: 'Basic Info',              description: 'Name, pricing and inventory',       icon: BedDouble },
-  { id: 'physical',     label: 'Room Physical Details',    description: 'Bed, size, view and bathroom',      icon: Settings2 },
-  { id: 'pricing',      label: 'Pricing & Availability',   description: 'Weekend rates and seasonal pricing', icon: IndianRupee },
-  { id: 'cancellation', label: 'Cancellation Policy',      description: 'Refund and cancellation terms',      icon: ShieldCheck },
-  { id: 'amenities',    label: 'Amenities & Media',        description: 'Room features and photos',           icon: Images },
+  { id: 'basic',        label: 'Basic Info',              description: 'Name, pricing and inventory',          icon: BedDouble },
+  { id: 'physical',     label: 'Room Physical Details',    description: 'Bed, size, view and bathroom',         icon: Settings2 },
+  { id: 'pricing',      label: 'Pricing & Availability',   description: 'Weekend rates and seasonal pricing',   icon: IndianRupee },
+  { id: 'cancellation', label: 'Cancellation Policy',      description: 'Refund and cancellation terms',        icon: ShieldCheck },
+  { id: 'amenities',    label: 'Amenities & Media',        description: 'Room features and photos',             icon: Images },
   { id: 'benefits',     label: 'Benefits',                 description: 'Complimentary and purchasable add-ons', icon: Gift },
 ]
+
+// ─── Step content components ──────────────────────────────────────────────────
 
 function StepBasic({ form, set }) {
   return (
@@ -201,10 +206,9 @@ function StepBasic({ form, set }) {
         <Input label="Price per Night (₹)" required type="number" placeholder="e.g. 5000" value={form.price} onChange={(e) => set({ price: e.target.value })} />
         <Input label="Tax (%)" type="number" placeholder="e.g. 18" value={form.tax} onChange={(e) => set({ tax: e.target.value })} />
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <Input label="Capacity" required type="number" placeholder="2" value={form.capacity} onChange={(e) => set({ capacity: e.target.value })} />
         <Input label="Max Occupancy" type="number" placeholder="3" value={form.maxOccupancy} onChange={(e) => set({ maxOccupancy: e.target.value })} />
-        <Input label="No. of Rooms" type="number" placeholder="10" value={form.noOfRooms} onChange={(e) => set({ noOfRooms: e.target.value })} />
       </div>
       <div className="bg-brand-bg rounded-xl border border-brand-border px-4">
         <Toggle label="Available for Booking" description="Guests can see and book this room" checked={form.available} onChange={(v) => set({ available: v })} />
@@ -294,11 +298,191 @@ function StepBenefits({ form, set }) {
 
 const STEP_COMPONENTS = [StepBasic, StepPhysical, StepPricing, StepCancellation, StepAmenities, StepBenefits]
 
-// ─── Default ──────────────────────────────────────────────────────────────────
+// ─── Post-save: Room Number Assignment ────────────────────────────────────────
+
+function RoomNumbersStep({ savedCategory, hotelId, onClose }) {
+  const [input, setInput] = useState('')
+  const [roomNumbers, setRoomNumbers] = useState([])
+  const [saving, setSaving] = useState(false)
+  const inputRef = useRef(null)
+
+  useEffect(() => { inputRef.current?.focus() }, [])
+
+  function parseAndAdd(val) {
+    const trimmed = val.trim()
+    if (!trimmed) return
+
+    const rangeMatch = trimmed.match(/^(\w+)\s*-\s*(\w+)$/)
+    if (rangeMatch) {
+      const fromNum = parseInt(rangeMatch[1], 10)
+      const toNum = parseInt(rangeMatch[2], 10)
+      if (!isNaN(fromNum) && !isNaN(toNum)) {
+        if (fromNum > toNum) { toast.error('Start must be ≤ end'); return }
+        if (toNum - fromNum > 99) { toast.error('Max 100 rooms per range'); return }
+        const nums = []
+        for (let i = fromNum; i <= toNum; i++) {
+          const s = String(i)
+          if (!roomNumbers.includes(s)) nums.push(s)
+        }
+        setRoomNumbers((p) => [...p, ...nums])
+        setInput('')
+        return
+      }
+    }
+
+    // Comma-separated or single value
+    const parts = trimmed.split(',').map((s) => s.trim()).filter(Boolean)
+    const newNums = parts.filter((n) => n && !roomNumbers.includes(n))
+    if (newNums.length) setRoomNumbers((p) => [...p, ...newNums])
+    setInput('')
+  }
+
+  async function handleSave() {
+    if (!roomNumbers.length) { onClose(); return }
+    setSaving(true)
+    try {
+      const batch = writeBatch(db)
+      for (const roomNumber of roomNumbers) {
+        const ref = doc(collection(db, COLLECTIONS.roomInstances))
+        batch.set(ref, {
+          hotelId,
+          categoryId: savedCategory.id,
+          roomNumber,
+          overrides: {},
+          createdAt: serverTimestamp(),
+        })
+      }
+      await batch.commit()
+      toast.success(`${roomNumbers.length} room${roomNumbers.length > 1 ? 's' : ''} added`)
+      onClose()
+    } catch (err) {
+      toast.error('Failed: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border sticky top-0 bg-brand-surface z-10">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-brand-success/10 border border-brand-success/20 flex items-center justify-center shrink-0">
+            <CheckCircle2 size={18} className="text-brand-success" />
+          </div>
+          <div>
+            <h2 className="font-serif text-brand-gold text-xl font-semibold leading-tight">Assign Room Numbers</h2>
+            <p className="text-brand-muted text-xs">{savedCategory.name} · this step can be skipped</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="text-brand-muted hover:text-brand-text p-1.5 rounded-lg hover:bg-brand-card transition-colors">
+          <X size={18} />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="px-6 py-5 space-y-5">
+        <p className="text-brand-muted text-sm leading-relaxed">
+          Add the specific room numbers that belong to this category. Each room will inherit all settings from <span className="text-brand-text font-medium">{savedCategory.name}</span>, and you can customise individual rooms later.
+        </p>
+
+        {/* Input row */}
+        <div className="space-y-2">
+          <label className="form-label flex items-center gap-1.5"><Hash size={12} /> Room Numbers</label>
+          <div className="flex gap-2">
+            <input
+              ref={inputRef}
+              className="form-input flex-1"
+              placeholder="e.g.  101  or  101-110  or  101, 102, 103"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); parseAndAdd(input) } }}
+            />
+            <button
+              type="button"
+              onClick={() => parseAndAdd(input)}
+              disabled={!input.trim()}
+              className="shrink-0 px-3 py-2 bg-brand-gold text-brand-bg rounded-lg text-sm font-medium hover:bg-brand-gold-light disabled:opacity-40 transition-colors"
+            >
+              Add
+            </button>
+          </div>
+          <p className="text-brand-muted text-xs">
+            Type a range like <code className="text-brand-gold">101-110</code>, comma-separated like <code className="text-brand-gold">101, 102</code>, or individual numbers one at a time.
+          </p>
+        </div>
+
+        {/* Chips */}
+        {roomNumbers.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-brand-text text-sm font-medium">
+                {roomNumbers.length} room{roomNumbers.length > 1 ? 's' : ''} to be created
+              </p>
+              <button
+                type="button"
+                onClick={() => setRoomNumbers([])}
+                className="text-brand-muted hover:text-brand-error text-xs transition-colors"
+              >
+                Clear all
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-1 -m-1">
+              {roomNumbers.map((n) => (
+                <span key={n} className="flex items-center gap-1 px-2.5 py-1 bg-brand-card border border-brand-border rounded-full text-brand-text text-xs font-medium">
+                  <Hash size={9} className="text-brand-gold" />
+                  {n}
+                  <button
+                    type="button"
+                    onClick={() => setRoomNumbers((p) => p.filter((x) => x !== n))}
+                    className="text-brand-muted hover:text-brand-error transition-colors ml-0.5"
+                  >
+                    <X size={10} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {roomNumbers.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-6 rounded-xl border border-dashed border-brand-border text-center">
+            <Hash size={24} className="text-brand-border mb-2" />
+            <p className="text-brand-muted text-sm">No room numbers added yet</p>
+            <p className="text-brand-muted text-xs mt-0.5">You can always add them later from the Room Categories page</p>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between px-6 py-4 border-t border-brand-border sticky bottom-0 bg-brand-surface">
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-brand-muted hover:text-brand-text text-sm transition-colors"
+        >
+          Skip for now
+        </button>
+        <Button
+          variant="primary"
+          size="md"
+          loading={saving}
+          disabled={roomNumbers.length === 0}
+          onClick={handleSave}
+        >
+          <Save size={15} />
+          Save {roomNumbers.length > 0 ? `${roomNumbers.length} Room${roomNumbers.length > 1 ? 's' : ''}` : 'Rooms'}
+        </Button>
+      </div>
+    </>
+  )
+}
+
+// ─── Default form state ───────────────────────────────────────────────────────
 
 const DEFAULT_FORM = {
   name: '', description: '',
-  capacity: '', maxOccupancy: '', price: '', tax: '', noOfRooms: '',
+  capacity: '', maxOccupancy: '', price: '', tax: '',
   available: true,
   bedType: '', noOfBeds: '', view: '', roomSizeSqft: '', floor: '',
   bathroomType: '', smokingAllowed: false, accessibilityFeatures: [], connectedRooms: false,
@@ -318,7 +502,6 @@ function roomToForm(d) {
     maxOccupancy: d.maxOccupancy ?? '',
     price: d.price ?? '',
     tax: d.tax ?? '',
-    noOfRooms: d.noOfRooms ?? '',
     available: d.available !== undefined ? d.available : true,
     bedType: d.bedType || '',
     noOfBeds: d.noOfBeds ?? '',
@@ -351,18 +534,19 @@ function roomToForm(d) {
  * props:
  *   hotelId   string
  *   room      null (new) | { id, ...data } (edit)
- *   onClose   () => void   — called after save or cancel
+ *   onClose   () => void
  */
 export default function RoomDialog({ hotelId, room, onClose }) {
   const isEdit = !!room?.id
   const [form, setForm] = useState(() => (room ? roomToForm(room) : { ...DEFAULT_FORM }))
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
+  // After creating a new category, store it here to show the room-numbers step
+  const [savedCategory, setSavedCategory] = useState(null)
 
   const isFirst = step === 0
   const isLast = step === STEPS.length - 1
 
-  // Escape key to close
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -386,6 +570,7 @@ export default function RoomDialog({ hotelId, room, onClose }) {
   }
 
   function handleNext() {
+    if (!validateStep()) return
     setStep((s) => s + 1)
   }
 
@@ -401,14 +586,13 @@ export default function RoomDialog({ hotelId, room, onClose }) {
         maxOccupancy: num(form.maxOccupancy),
         price: num(form.price),
         tax: num(form.tax),
-        noOfRooms: num(form.noOfRooms),
+        available: form.available,
         bedType: form.bedType || null,
         noOfBeds: num(form.noOfBeds),
         view: form.view || null,
         roomSizeSqft: num(form.roomSizeSqft),
         floor: form.floor || null,
         bathroomType: form.bathroomType || null,
-        available: form.available,
         smokingAllowed: form.smokingAllowed,
         accessibilityFeatures: form.accessibilityFeatures,
         connectedRooms: form.connectedRooms,
@@ -432,12 +616,14 @@ export default function RoomDialog({ hotelId, room, onClose }) {
       if (isEdit) {
         await updateDoc(doc(db, COLLECTIONS.rooms, room.id), payload)
         toast.success('Room category updated')
+        onClose()
       } else {
         payload.createdAt = serverTimestamp()
-        await addDoc(collection(db, COLLECTIONS.rooms), payload)
-        toast.success('Room category created')
+        const docRef = await addDoc(collection(db, COLLECTIONS.rooms), payload)
+        toast.success('Room type created')
+        // Transition to the room-numbers assignment step
+        setSavedCategory({ id: docRef.id, name: form.name.trim() })
       }
-      onClose()
     } catch (err) {
       toast.error('Save failed: ' + err.message)
     } finally {
@@ -452,54 +638,61 @@ export default function RoomDialog({ hotelId, room, onClose }) {
   return (
     <div className="dialog-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog-box">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border sticky top-0 bg-brand-surface z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-brand-gold/10 border border-brand-gold/20 flex items-center justify-center shrink-0">
-              <StepIcon size={18} className="text-brand-gold" />
+        {/* ── Post-save: Room Numbers Assignment ── */}
+        {savedCategory ? (
+          <RoomNumbersStep savedCategory={savedCategory} hotelId={hotelId} onClose={onClose} />
+        ) : (
+          <>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border sticky top-0 bg-brand-surface z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-brand-gold/10 border border-brand-gold/20 flex items-center justify-center shrink-0">
+                  <StepIcon size={18} className="text-brand-gold" />
+                </div>
+                <div>
+                  <h2 className="font-serif text-brand-gold text-xl font-semibold leading-tight">{meta.label}</h2>
+                  <p className="text-brand-muted text-xs">{meta.description}</p>
+                </div>
+              </div>
+              <button onClick={onClose} className="text-brand-muted hover:text-brand-text p-1.5 rounded-lg hover:bg-brand-card transition-colors">
+                <X size={18} />
+              </button>
             </div>
-            <div>
-              <h2 className="font-serif text-brand-gold text-xl font-semibold leading-tight">{meta.label}</h2>
-              <p className="text-brand-muted text-xs">{meta.description}</p>
+
+            {/* Step indicator */}
+            <div className="flex items-center gap-1 px-6 pt-4">
+              {STEPS.map((s, i) => (
+                <button key={s.id} onClick={() => setStep(i)} title={s.label}
+                  className={`h-1.5 rounded-full transition-all flex-1 ${
+                    i === step ? 'bg-brand-gold' : i < step ? 'bg-brand-gold/40' : 'bg-brand-border'
+                  }`} />
+              ))}
             </div>
-          </div>
-          <button onClick={onClose} className="text-brand-muted hover:text-brand-text p-1.5 rounded-lg hover:bg-brand-card transition-colors">
-            <X size={18} />
-          </button>
-        </div>
 
-        {/* Step indicator */}
-        <div className="flex items-center gap-1 px-6 pt-4">
-          {STEPS.map((s, i) => (
-            <button key={s.id} onClick={() => setStep(i)} title={s.label}
-              className={`h-1.5 rounded-full transition-all flex-1 ${
-                i === step ? 'bg-brand-gold' : i < step ? 'bg-brand-gold/40' : 'bg-brand-border'
-              }`} />
-          ))}
-        </div>
+            {/* Content */}
+            <div className="px-6 py-5">
+              <CurrentStep form={form} set={set} />
+            </div>
 
-        {/* Content */}
-        <div className="px-6 py-5">
-          <CurrentStep form={form} set={set} />
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-brand-border sticky bottom-0 bg-brand-surface">
-          <Button variant="ghost" size="md" disabled={isFirst} onClick={() => setStep((s) => s - 1)}>
-            <ChevronLeft size={16} /> Previous
-          </Button>
-          <span className="text-brand-muted text-xs shrink-0">{step + 1} / {STEPS.length}</span>
-          {isLast ? (
-            <Button variant="primary" size="md" loading={saving} onClick={handleSave}>
-              <Save size={15} />
-              {isEdit ? 'Save Changes' : 'Create Room'}
-            </Button>
-          ) : (
-            <Button variant="primary" size="md" onClick={handleNext}>
-              Next <ChevronRight size={16} />
-            </Button>
-          )}
-        </div>
+            {/* Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-brand-border sticky bottom-0 bg-brand-surface">
+              <Button variant="ghost" size="md" disabled={isFirst} onClick={() => setStep((s) => s - 1)}>
+                <ChevronLeft size={16} /> Previous
+              </Button>
+              <span className="text-brand-muted text-xs shrink-0">{step + 1} / {STEPS.length}</span>
+              {isLast ? (
+                <Button variant="primary" size="md" loading={saving} onClick={handleSave}>
+                  <Save size={15} />
+                  {isEdit ? 'Save Changes' : 'Create Room Type'}
+                </Button>
+              ) : (
+                <Button variant="primary" size="md" onClick={handleNext}>
+                  Next <ChevronRight size={16} />
+                </Button>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
