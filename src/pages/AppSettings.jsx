@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore'
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage'
-import { db, storage } from '../firebase'
+import { db, storage } from '../firebase.js'
 import { Upload, X, ImagePlus, Film, Loader2, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
