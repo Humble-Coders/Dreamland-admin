@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  addDoc, updateDoc, doc, collection, serverTimestamp, writeBatch,
+  addDoc, updateDoc, doc, getDocs, collection, serverTimestamp, writeBatch,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { COLLECTIONS } from '../schema'
+import useLookupCollection from '../hooks/useLookupCollection'
 import {
   X, ChevronLeft, ChevronRight, Loader2, Save, Plus,
   BedDouble, Settings2, IndianRupee, ShieldCheck, Images, Gift,
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react'
 import Input from './ui/Input'
 import Select from './ui/Select'
+import RefComboSelect from './ui/RefComboSelect'
 import Button from './ui/Button'
 import toast from 'react-hot-toast'
 
@@ -72,6 +74,69 @@ function TagInput({ label, value = [], onChange, placeholder, suggestions = [] }
             <button key={s} type="button" onClick={() => add(s)}
               className="px-2.5 py-1 rounded-full border border-brand-border text-brand-muted hover:border-brand-gold hover:text-brand-gold text-xs transition-colors">
               + {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LookupTagInput({ label, value = [], onChange, placeholder, collectionName, docs = [], docsLoading = false }) {
+  const [input, setInput] = useState('')
+
+  async function addNew(tagName) {
+    const t = tagName.trim()
+    if (!t) return
+    setInput('')
+    if (!value.includes(t)) onChange([...value, t])
+    try {
+      await addDoc(collection(db, collectionName), { name: t, createdAt: serverTimestamp() })
+    } catch (err) {
+      console.error(`Failed to add "${t}" to ${collectionName}:`, err)
+    }
+  }
+
+  function select(name) {
+    if (!value.includes(name)) onChange([...value, name])
+  }
+
+  const availableChips = docs.filter((d) => !value.includes(d.name))
+
+  return (
+    <div className="space-y-2">
+      {label && <label className="form-label">{label}</label>}
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {value.map((t) => (
+            <span key={t} className="flex items-center gap-1 px-2.5 py-1 bg-brand-gold/10 border border-brand-gold/30 rounded-full text-brand-gold text-xs">
+              {t}
+              <button type="button" onClick={() => onChange(value.filter((x) => x !== t))} className="hover:opacity-70"><X size={11} /></button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <input
+          className="form-input flex-1"
+          placeholder={placeholder || 'Type and press Enter…'}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addNew(input) } }}
+        />
+        <button type="button" disabled={!input.trim()} onClick={() => addNew(input)}
+          className="shrink-0 px-3 py-2 bg-brand-gold text-brand-bg rounded-lg text-sm font-medium hover:bg-brand-gold-light disabled:opacity-40 transition-colors">
+          Add
+        </button>
+      </div>
+      {docsLoading ? (
+        <p className="text-brand-muted text-xs">Loading…</p>
+      ) : availableChips.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-0.5">
+          {availableChips.map((d) => (
+            <button key={d.id} type="button" onClick={() => select(d.name)}
+              className="px-2.5 py-1 rounded-full border border-brand-border text-brand-muted hover:border-brand-gold hover:text-brand-gold text-xs transition-colors">
+              + {d.name}
             </button>
           ))}
         </div>
@@ -217,16 +282,37 @@ function StepBasic({ form, set }) {
   )
 }
 
-function StepPhysical({ form, set }) {
+function StepPhysical({ form, set, lookup }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <Select label="Bed Type" placeholder="Select" value={form.bedType} onChange={(e) => set({ bedType: e.target.value })} options={['single', 'twin', 'double', 'queen', 'king', 'bunk']} />
+        <RefComboSelect
+          label="Bed Type"
+          placeholder="Select or add"
+          collectionName={COLLECTIONS.bedTypes}
+          seedValues={['single', 'twin', 'double', 'queen', 'king', 'bunk']}
+          value={form.bedTypeId || ''}
+          onSelect={(id, name) => set({ bedTypeId: id, bedType: name })}
+        />
         <Input label="Number of Beds" type="number" placeholder="e.g. 1" value={form.noOfBeds} onChange={(e) => set({ noOfBeds: e.target.value })} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Select label="View" placeholder="Select" value={form.view} onChange={(e) => set({ view: e.target.value })} options={['pool', 'garden', 'sea', 'city', 'mountain', 'courtyard']} />
-        <Select label="Bathroom Type" placeholder="Select" value={form.bathroomType} onChange={(e) => set({ bathroomType: e.target.value })} options={['attached', 'shared', 'en-suite']} />
+        <RefComboSelect
+          label="View"
+          placeholder="Select or add"
+          collectionName={COLLECTIONS.viewTypes}
+          seedValues={['pool', 'garden', 'sea', 'city', 'mountain', 'courtyard']}
+          value={form.viewId || ''}
+          onSelect={(id, name) => set({ viewId: id, view: name })}
+        />
+        <RefComboSelect
+          label="Bathroom Type"
+          placeholder="Select or add"
+          collectionName={COLLECTIONS.bathroomTypes}
+          seedValues={['attached', 'shared', 'en-suite']}
+          value={form.bathroomTypeId || ''}
+          onSelect={(id, name) => set({ bathroomTypeId: id, bathroomType: name })}
+        />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Input label="Room Size (sq ft)" type="number" placeholder="e.g. 350" value={form.roomSizeSqft} onChange={(e) => set({ roomSizeSqft: e.target.value })} />
@@ -236,7 +322,7 @@ function StepPhysical({ form, set }) {
         <Toggle label="Smoking Allowed" checked={form.smokingAllowed} onChange={(v) => set({ smokingAllowed: v })} />
         <Toggle label="Connected Rooms Available" description="Can be joined with adjacent room" checked={form.connectedRooms} onChange={(v) => set({ connectedRooms: v })} />
       </div>
-      <TagInput label="Accessibility Features" value={form.accessibilityFeatures} onChange={(v) => set({ accessibilityFeatures: v })} placeholder="e.g. Wheelchair Accessible" suggestions={ACCESSIBILITY_SUGGESTIONS} />
+      <LookupTagInput label="Accessibility Features" value={form.accessibilityFeatures} onChange={(v) => set({ accessibilityFeatures: v })} placeholder="e.g. Wheelchair Accessible" collectionName="roomAccessibilityFeatures" docs={lookup.accessibilityDocs} docsLoading={lookup.accessibilityLoading} />
     </div>
   )
 }
@@ -278,20 +364,20 @@ function StepCancellation({ form, set }) {
   )
 }
 
-function StepAmenities({ form, set }) {
+function StepAmenities({ form, set, lookup }) {
   return (
     <div className="space-y-5">
-      <TagInput label="Room Amenities" value={form.amenities} onChange={(v) => set({ amenities: v })} placeholder="e.g. Air Conditioning" suggestions={AMENITY_SUGGESTIONS} />
+      <LookupTagInput label="Room Amenities" value={form.amenities} onChange={(v) => set({ amenities: v })} placeholder="e.g. Air Conditioning" collectionName="roomAmenities" docs={lookup.amenityDocs} docsLoading={lookup.amenityLoading} />
       <URLListInput label="Photo URLs" value={form.media} onChange={(v) => set({ media: v })} />
     </div>
   )
 }
 
-function StepBenefits({ form, set }) {
+function StepBenefits({ form, set, lookup }) {
   return (
     <div className="space-y-5">
-      <TagInput label="Complimentary Benefits" value={form.complimentaryBenefits} onChange={(v) => set({ complimentaryBenefits: v })} placeholder="e.g. Breakfast Included" suggestions={COMPLIMENTARY_SUGGESTIONS} />
-      <TagInput label="Purchasable Add-ons" value={form.purchasableBenefits} onChange={(v) => set({ purchasableBenefits: v })} placeholder="e.g. Spa Package" suggestions={PURCHASABLE_SUGGESTIONS} />
+      <LookupTagInput label="Complimentary Benefits" value={form.complimentaryBenefits} onChange={(v) => set({ complimentaryBenefits: v })} placeholder="e.g. Breakfast Included" collectionName="roomComplimentaryBenefits" docs={lookup.complimentaryDocs} docsLoading={lookup.complimentaryLoading} />
+      <LookupTagInput label="Purchasable Add-ons" value={form.purchasableBenefits} onChange={(v) => set({ purchasableBenefits: v })} placeholder="e.g. Spa Package" collectionName="roomPurchasableBenefits" docs={lookup.purchasableDocs} docsLoading={lookup.purchasableLoading} />
     </div>
   )
 }
@@ -348,7 +434,8 @@ function RoomNumbersStep({ savedCategory, hotelId, onClose }) {
           hotelId,
           categoryId: savedCategory.id,
           roomNumber,
-          overrides: {},
+          status: 'AVAILABLE',
+          currentStayId: null,
           createdAt: serverTimestamp(),
         })
       }
@@ -484,8 +571,8 @@ const DEFAULT_FORM = {
   name: '', description: '',
   capacity: '', maxOccupancy: '', price: '', tax: '',
   available: true,
-  bedType: '', noOfBeds: '', view: '', roomSizeSqft: '', floor: '',
-  bathroomType: '', smokingAllowed: false, accessibilityFeatures: [], connectedRooms: false,
+  bedType: '', bedTypeId: '', noOfBeds: '', view: '', viewId: '', roomSizeSqft: '', floor: '',
+  bathroomType: '', bathroomTypeId: '', smokingAllowed: false, accessibilityFeatures: [], connectedRooms: false,
   extraGuestCharge: '', weekendPricingFri: '', weekendPricingSat: '',
   minStayNights: '', seasonalPricing: [],
   freeCancellation: false, cancellationFreeBefore: '',
@@ -504,11 +591,14 @@ function roomToForm(d) {
     tax: d.tax ?? '',
     available: d.available !== undefined ? d.available : true,
     bedType: d.bedType || '',
+    bedTypeId: '',
     noOfBeds: d.noOfBeds ?? '',
     view: d.view || '',
+    viewId: '',
     roomSizeSqft: d.roomSizeSqft ?? '',
     floor: d.floor || '',
     bathroomType: d.bathroomType || '',
+    bathroomTypeId: '',
     smokingAllowed: d.smokingAllowed || false,
     accessibilityFeatures: d.accessibilityFeatures || [],
     connectedRooms: d.connectedRooms || false,
@@ -528,6 +618,9 @@ function roomToForm(d) {
   }
 }
 
+// ─── Module-level seed flag (runs once per browser session) ──────────────────
+let seedDone = false
+
 // ─── Main Dialog ──────────────────────────────────────────────────────────────
 
 /**
@@ -536,11 +629,63 @@ function roomToForm(d) {
  *   room      null (new) | { id, ...data } (edit)
  *   onClose   () => void
  */
+function isFormDirty(form, isEdit) {
+  if (isEdit) return true
+  return (
+    form.name !== '' ||
+    form.description !== '' ||
+    form.price !== '' ||
+    form.capacity !== '' ||
+    form.bedType !== '' ||
+    form.view !== '' ||
+    form.bathroomType !== '' ||
+    form.floor !== '' ||
+    form.amenities.length > 0 ||
+    form.media.length > 0 ||
+    form.accessibilityFeatures.length > 0 ||
+    form.seasonalPricing.length > 0 ||
+    form.complimentaryBenefits.length > 0 ||
+    form.purchasableBenefits.length > 0
+  )
+}
+
 export default function RoomDialog({ hotelId, room, onClose }) {
   const isEdit = !!room?.id
   const [form, setForm] = useState(() => (room ? roomToForm(room) : { ...DEFAULT_FORM }))
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
+
+  // Seed lookup collections once per session on first dialog open
+  useEffect(() => {
+    if (seedDone) return
+    seedDone = true
+    const seedData = [
+      { colName: 'roomAmenities', values: AMENITY_SUGGESTIONS },
+      { colName: 'roomAccessibilityFeatures', values: ACCESSIBILITY_SUGGESTIONS },
+      { colName: 'roomComplimentaryBenefits', values: COMPLIMENTARY_SUGGESTIONS },
+      { colName: 'roomPurchasableBenefits', values: PURCHASABLE_SUGGESTIONS },
+    ]
+    seedData.forEach(async ({ colName, values }) => {
+      try {
+        const colRef = collection(db, colName)
+        const snap = await getDocs(colRef)
+        if (!snap.empty) return
+        const batch = writeBatch(db)
+        values.forEach((name) => batch.set(doc(colRef), { name, createdAt: serverTimestamp() }))
+        await batch.commit()
+      } catch (err) {
+        console.error(`Failed to seed ${colName}:`, err)
+      }
+    })
+  }, [])
+
+  // Real-time lookup collection subscriptions
+  const { docs: amenityDocs, loading: amenityLoading } = useLookupCollection('roomAmenities')
+  const { docs: accessibilityDocs, loading: accessibilityLoading } = useLookupCollection('roomAccessibilityFeatures')
+  const { docs: complimentaryDocs, loading: complimentaryLoading } = useLookupCollection('roomComplimentaryBenefits')
+  const { docs: purchasableDocs, loading: purchasableLoading } = useLookupCollection('roomPurchasableBenefits')
+  const lookup = { amenityDocs, amenityLoading, accessibilityDocs, accessibilityLoading, complimentaryDocs, complimentaryLoading, purchasableDocs, purchasableLoading }
   // After creating a new category, store it here to show the room-numbers step
   const [savedCategory, setSavedCategory] = useState(null)
 
@@ -548,10 +693,14 @@ export default function RoomDialog({ hotelId, room, onClose }) {
   const isLast = step === STEPS.length - 1
 
   useEffect(() => {
-    function onKey(e) { if (e.key === 'Escape') onClose() }
+    function onKey(e) {
+      if (e.key !== 'Escape') return
+      if (showDiscardConfirm) { setShowDiscardConfirm(false); return }
+      if (isFormDirty(form, isEdit)) { setShowDiscardConfirm(true) } else { onClose() }
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, form, isEdit, showDiscardConfirm])
 
   function set(patch) { setForm((p) => ({ ...p, ...patch })) }
 
@@ -635,8 +784,12 @@ export default function RoomDialog({ hotelId, room, onClose }) {
   const meta = STEPS[step]
   const StepIcon = meta.icon
 
+  function requestClose() {
+    if (isFormDirty(form, isEdit)) { setShowDiscardConfirm(true) } else { onClose() }
+  }
+
   return (
-    <div className="dialog-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="dialog-overlay" onClick={(e) => e.target === e.currentTarget && requestClose()}>
       <div className="dialog-box">
         {/* ── Post-save: Room Numbers Assignment ── */}
         {savedCategory ? (
@@ -654,7 +807,7 @@ export default function RoomDialog({ hotelId, room, onClose }) {
                   <p className="text-brand-muted text-xs">{meta.description}</p>
                 </div>
               </div>
-              <button onClick={onClose} className="text-brand-muted hover:text-brand-text p-1.5 rounded-lg hover:bg-brand-card transition-colors">
+              <button onClick={requestClose} className="text-brand-muted hover:text-brand-text p-1.5 rounded-lg hover:bg-brand-card transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -671,24 +824,48 @@ export default function RoomDialog({ hotelId, room, onClose }) {
 
             {/* Content */}
             <div className="px-6 py-5">
-              <CurrentStep form={form} set={set} />
+              <CurrentStep form={form} set={set} lookup={lookup} />
             </div>
 
             {/* Footer */}
             <div className="flex items-center justify-between px-6 py-4 border-t border-brand-border sticky bottom-0 bg-brand-surface">
-              <Button variant="ghost" size="md" disabled={isFirst} onClick={() => setStep((s) => s - 1)}>
-                <ChevronLeft size={16} /> Previous
-              </Button>
-              <span className="text-brand-muted text-xs shrink-0">{step + 1} / {STEPS.length}</span>
-              {isLast ? (
-                <Button variant="primary" size="md" loading={saving} onClick={handleSave}>
-                  <Save size={15} />
-                  {isEdit ? 'Save Changes' : 'Create Room Type'}
-                </Button>
+              {showDiscardConfirm ? (
+                <>
+                  <p className="text-brand-text text-sm font-medium">Discard all information?</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowDiscardConfirm(false)}
+                      className="px-4 py-2 rounded-lg border border-brand-border text-brand-muted hover:text-brand-text hover:border-brand-gold text-sm transition-colors"
+                    >
+                      Keep Editing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-4 py-2 rounded-lg bg-brand-error/10 border border-brand-error/30 text-brand-error hover:bg-brand-error/20 text-sm font-medium transition-colors"
+                    >
+                      Yes, Discard
+                    </button>
+                  </div>
+                </>
               ) : (
-                <Button variant="primary" size="md" onClick={handleNext}>
-                  Next <ChevronRight size={16} />
-                </Button>
+                <>
+                  <Button variant="ghost" size="md" disabled={isFirst} onClick={() => setStep((s) => s - 1)}>
+                    <ChevronLeft size={16} /> Previous
+                  </Button>
+                  <span className="text-brand-muted text-xs shrink-0">{step + 1} / {STEPS.length}</span>
+                  {isLast ? (
+                    <Button variant="primary" size="md" loading={saving} onClick={handleSave}>
+                      <Save size={15} />
+                      {isEdit ? 'Save Changes' : 'Create Room Type'}
+                    </Button>
+                  ) : (
+                    <Button variant="primary" size="md" onClick={handleNext}>
+                      Next <ChevronRight size={16} />
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           </>

@@ -62,7 +62,8 @@ function AddRoomNumbersInline({ category, hotelId, existingNumbers, onDone }) {
           hotelId,
           categoryId: category.id,
           roomNumber,
-          overrides: {},
+          status: 'AVAILABLE',
+          currentStayId: null,
           createdAt: serverTimestamp(),
         })
       }

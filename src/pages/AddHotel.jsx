@@ -26,13 +26,14 @@ const DEFAULT_FORM = {
   isLuxury: false,
   checkInTime: '',
   checkOutTime: '',
-  earlyCheckInFee: false,
-  lateCheckOutFee: false,
+  earlyCheckInAllowed: false,
+  earlyCheckInPrice: 0,
+  lateCheckOutAllowed: false,
+  lateCheckOutPrice: 0,
   parkingAvailable: false,
   pdfRequired: false,
   privacyPremium: false,
   petPolicy: false,
-  foodInclusivity: false,
   photos: [],
   modes: [],
   mealPlansAvailable: [],
@@ -93,7 +94,7 @@ function validateAll(data) {
 // Strip lookup-reference IDs before writing to Firestore.
 // The actual value (name) is already stored in the sibling field without the "Id" suffix.
 function prepareForSave(data) {
-  const { parkingTypeId, parkingCategoryId, ...rest } = data
+  const { parkingTypeId, parkingCategoryId, hotelTypeId, ...rest } = data
   if (rest.highlights) {
     rest.highlights = rest.highlights.map(({ categoryId, amenityTypeId, ...h }) => h)
   }
@@ -114,7 +115,7 @@ function AddHotelLanding() {
   const navigate = useNavigate()
   const { hotels, loading } = useHotels()
 
-  const drafts = hotels.filter((h) => h.status === 'draft')
+  const drafts = hotels.filter((h) => h.status === 'DRAFT')
 
   return (
     <div className="p-6 lg:p-8 min-h-full">
@@ -245,7 +246,7 @@ function AddHotelEditor({ initialHotelId }) {
         // Update existing doc
         await updateDoc(doc(db, COLLECTIONS.hotels, hotelId), {
           ...hotelFields,
-          status: 'draft',
+          status: 'DRAFT',
           updatedAt: serverTimestamp(),
         })
       } else {
@@ -254,7 +255,7 @@ function AddHotelEditor({ initialHotelId }) {
         creatingRef.current = true
         const ref = await addDoc(collection(db, COLLECTIONS.hotels), {
           ...hotelFields,
-          status: 'draft',
+          status: 'DRAFT',
           isActive: false,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -332,13 +333,13 @@ function AddHotelEditor({ initialHotelId }) {
       if (hotelIdRef.current) {
         // Fire-and-forget: saves to Firestore when navigating away
         updateDoc(doc(db, COLLECTIONS.hotels, hotelIdRef.current), {
-          ...hotelFields, status: 'draft', updatedAt: serverTimestamp(),
+          ...hotelFields, status: 'DRAFT', updatedAt: serverTimestamp(),
         }).then(() => toast.success('Draft saved automatically')).catch(() => {})
       } else if (!creatingRef.current) {
         // Never saved yet — create the doc before leaving
         creatingRef.current = true
         addDoc(collection(db, COLLECTIONS.hotels), {
-          ...hotelFields, status: 'draft', isActive: false,
+          ...hotelFields, status: 'DRAFT', isActive: false,
           createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
         }).then(() => toast.success('Draft saved automatically')).catch(() => {})
       }
@@ -364,12 +365,12 @@ function AddHotelEditor({ initialHotelId }) {
 
       if (hotelId) {
         await updateDoc(doc(db, COLLECTIONS.hotels, hotelId), {
-          ...hotelFields, status: 'active', updatedAt: serverTimestamp(),
+          ...hotelFields, status: 'ACTIVE', updatedAt: serverTimestamp(),
         })
       } else {
         // First-time publish from new mode
         await addDoc(collection(db, COLLECTIONS.hotels), {
-          ...hotelFields, status: 'active', isActive: true,
+          ...hotelFields, status: 'ACTIVE', isActive: true,
           createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
         })
       }

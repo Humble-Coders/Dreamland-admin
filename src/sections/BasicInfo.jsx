@@ -1,7 +1,8 @@
 import Input from '../components/ui/Input'
-import Select from '../components/ui/Select'
+import RefComboSelect from '../components/ui/RefComboSelect'
+import { COLLECTIONS } from '../schema'
 
-const TYPE_OPTIONS = ['resort', 'boutique', 'hostel', 'villa', 'homestay']
+const HOTEL_TYPE_SEEDS = ['resort', 'boutique', 'hostel', 'villa', 'homestay']
 
 export default function BasicInfo({ data, onChange, errors }) {
   return (
@@ -28,13 +29,14 @@ export default function BasicInfo({ data, onChange, errors }) {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <Select
+        <RefComboSelect
           label="Hotel Type"
           required
           placeholder="Select type"
-          options={TYPE_OPTIONS}
-          value={data.hotelType || ''}
-          onChange={(e) => onChange({ hotelType: e.target.value })}
+          collectionName={COLLECTIONS.hotelTypes}
+          seedValues={HOTEL_TYPE_SEEDS}
+          value={data.hotelTypeId || ''}
+          onSelect={(id, name) => onChange({ hotelTypeId: id, hotelType: name })}
           error={errors?.hotelType}
         />
 

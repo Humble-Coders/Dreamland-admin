@@ -133,7 +133,7 @@ export default function HotelDetail() {
   }
 
   const data = formData || {}
-  const statusVariant = hotel.status === 'active' ? 'active' : hotel.status === 'draft' ? 'draft' : 'inactive'
+  const statusVariant = hotel.status === 'ACTIVE' ? 'active' : hotel.status === 'DRAFT' ? 'draft' : 'inactive'
 
   return (
     <div className="pb-20">
@@ -229,12 +229,16 @@ export default function HotelDetail() {
               <InfoRow icon={Clock} label="Check-Out" value={hotel.checkOutTime} />
               <div className="flex gap-4 mt-3 pt-2 border-t border-brand-border/50">
                 <div className="flex items-center gap-2">
-                  <Flag ok={hotel.earlyCheckInFee} />
-                  <span className="text-brand-muted text-xs">Early Check-In Fee</span>
+                  <Flag ok={hotel.earlyCheckInAllowed} />
+                  <span className="text-brand-muted text-xs">
+                    Early Check-In{hotel.earlyCheckInAllowed && hotel.earlyCheckInPrice ? ` (₹${hotel.earlyCheckInPrice})` : ''}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Flag ok={hotel.lateCheckOutFee} />
-                  <span className="text-brand-muted text-xs">Late Check-Out Fee</span>
+                  <Flag ok={hotel.lateCheckOutAllowed} />
+                  <span className="text-brand-muted text-xs">
+                    Late Check-Out{hotel.lateCheckOutAllowed && hotel.lateCheckOutPrice ? ` (₹${hotel.lateCheckOutPrice})` : ''}
+                  </span>
                 </div>
               </div>
             </div>
@@ -270,7 +274,11 @@ export default function HotelDetail() {
                   <p className="form-label mb-2">Meal Plans</p>
                   <div className="flex flex-wrap gap-1.5">
                     {hotel.mealPlansAvailable.map((plan) => (
-                      <Badge key={plan} label={plan} variant="default" />
+                      <Badge
+                        key={plan.value ?? plan}
+                        label={plan.price > 0 ? `${plan.value ?? plan} — ₹${plan.price}` : (plan.value ?? plan)}
+                        variant="default"
+                      />
                     ))}
                   </div>
                 </div>
@@ -285,10 +293,6 @@ export default function HotelDetail() {
                   </div>
                 </div>
               )}
-              <div className="flex items-center gap-2 pt-1">
-                <Flag ok={hotel.foodInclusivity} />
-                <span className="text-brand-muted text-xs">Vegetarian / Inclusive Menu</span>
-              </div>
             </div>
           </SectionCard>
 

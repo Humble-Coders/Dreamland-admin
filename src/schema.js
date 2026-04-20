@@ -15,10 +15,10 @@ export const HOTEL_SCHEMA = {
   name: { type: 'string', required: true, label: 'Hotel Name' },
   description: { type: 'string', required: false, label: 'Description' },
   hotelType: {
-    type: 'enum',
+    type: 'string',
     required: true,
     label: 'Hotel Type',
-    options: ['resort', 'boutique', 'hostel', 'villa', 'homestay'],
+    lookupCollection: 'hotelTypes',
   },
   starRating: { type: 'number', required: true, label: 'Star Rating', min: 1, max: 5 },
   isActive: { type: 'boolean', required: false, default: true, label: 'Active' },
@@ -34,8 +34,10 @@ export const HOTEL_SCHEMA = {
   // ── Check-in / Check-out ─────────────────────────────────────
   checkInTime: { type: 'string', required: true, label: 'Check-In Time' },
   checkOutTime: { type: 'string', required: true, label: 'Check-Out Time' },
-  earlyCheckInFee: { type: 'boolean', required: false, default: false, label: 'Early Check-In Fee' },
-  lateCheckOutFee: { type: 'boolean', required: false, default: false, label: 'Late Check-Out Fee' },
+  earlyCheckInAllowed: { type: 'boolean', required: false, default: false, label: 'Early Check-In Allowed' },
+  earlyCheckInPrice: { type: 'number', required: false, default: 0, label: 'Early Check-In Price' },
+  lateCheckOutAllowed: { type: 'boolean', required: false, default: false, label: 'Late Check-Out Allowed' },
+  lateCheckOutPrice: { type: 'number', required: false, default: 0, label: 'Late Check-Out Price' },
 
   // ── Location ──────────────────────────────────────────────────
   address: { type: 'string', required: true, label: 'Street Address' },
@@ -57,7 +59,7 @@ export const HOTEL_SCHEMA = {
     required: false,
     label: 'Transport Modes',
     itemSchema: {
-      category: { type: 'enum', options: ['bus', 'train', 'airport', 'metro'], label: 'Category' },
+      category: { type: 'enum', options: ['BUS', 'TRAIN', 'AIRPORT', 'METRO'], label: 'Category' },
       name: { type: 'string', label: 'Name / Station' },
       distance: { type: 'string', label: 'Distance (text)' },
       distanceInKm: { type: 'number', label: 'Distance (km)' },
@@ -72,17 +74,19 @@ export const HOTEL_SCHEMA = {
     type: 'array',
     required: false,
     label: 'Meal Plans',
-    options: ['Breakfast', 'FullBoard', 'HB', 'RO'],
+    itemSchema: {
+      value: { type: 'enum', options: ['Breakfast', 'FullBoard', 'HB', 'RO'], label: 'Plan' },
+      price: { type: 'number', default: 0, label: 'Price per person (₹)' },
+    },
   },
-  foodInclusivity: { type: 'boolean', required: false, default: false, label: 'Vegetarian / Inclusive Menu' },
 
   // ── Parking ───────────────────────────────────────────────────
   parkingAvailable: { type: 'boolean', required: false, default: false, label: 'Parking Available' },
   parkingType: {
-    type: 'enum',
+    type: 'string',
     required: false,
     label: 'Parking Type',
-    options: ['covered', 'shared', 'guest', 'valet'],
+    lookupCollection: 'parkingTypes',
   },
   parkingSpots: { type: 'number', required: false, label: 'Total Parking Spots' },
 
@@ -94,11 +98,11 @@ export const HOTEL_SCHEMA = {
     itemSchema: {
       title: { type: 'string', label: 'Highlight Title' },
       category: {
-        type: 'enum',
-        options: ['hotel', 'shared', 'outdoor', 'cultural', 'water'],
+        type: 'string',
         label: 'Category',
+        lookupCollection: 'highlightCategories',
       },
-      amenityType: { type: 'enum', options: ['basic', 'shared'], label: 'Amenity Type' },
+      amenityType: { type: 'string', label: 'Amenity Type', lookupCollection: 'amenityTypes' },
     },
   },
 
@@ -128,8 +132,8 @@ export const HOTEL_SCHEMA = {
   status: {
     type: 'enum',
     required: false,
-    default: 'draft',
-    options: ['active', 'inactive', 'draft'],
+    default: 'DRAFT',
+    options: ['ACTIVE', 'INACTIVE', 'DRAFT'],
     label: 'Status',
   },
   openingDate: { type: 'timestamp', required: false, label: 'Opening Date' },
@@ -192,11 +196,15 @@ export const COLLECTIONS = {
   rooms: 'rooms',
   roomInstances: 'roomInstances',
   // Lookup / reference collections
+  hotelTypes: 'hotelTypes',
   parkingTypes: 'parkingTypes',
   parkingCategories: 'parkingCategories',
   attractionCategories: 'attractionCategories',
   highlightCategories: 'highlightCategories',
   amenityTypes: 'amenityTypes',
+  bedTypes: 'bedTypes',
+  viewTypes: 'viewTypes',
+  bathroomTypes: 'bathroomTypes',
 };
 
 // ---------- ATTRACTION DOCUMENT ----------
@@ -204,10 +212,10 @@ export const ATTRACTION_SCHEMA = {
   hotelId: { type: 'string', required: true, label: 'Hotel ID' },
   name: { type: 'string', required: true, label: 'Attraction Name' },
   category: {
-    type: 'enum',
+    type: 'string',
     required: true,
     label: 'Category',
-    options: ['religious', 'nature', 'shopping', 'food', 'heritage', 'adventure'],
+    lookupCollection: 'attractionCategories',
   },
   pictureable: { type: 'boolean', required: false, default: false, label: 'Photo Spot' },
   description: { type: 'string', required: false, label: 'Description / Travel Info' },
@@ -232,7 +240,7 @@ export const ROOM_SCHEMA = {
   price: { type: 'number', required: true, label: 'Price per Night (₹)' },
   tax: { type: 'number', required: false, label: 'Tax (%)' },
   available: { type: 'boolean', required: false, default: true, label: 'Available for Booking' },
-  bedType: { type: 'enum', required: false, options: ['single', 'twin', 'double', 'queen', 'king', 'bunk'], label: 'Bed Type' },
+  bedType: { type: 'string', required: false, label: 'Bed Type', lookupCollection: 'bedTypes' },
   noOfBeds: { type: 'number', required: false, label: 'Number of Beds' },
   view: { type: 'string', required: false, label: 'Room View' },
   roomSizeSqft: { type: 'number', required: false, label: 'Room Size (sqft)' },
@@ -281,6 +289,14 @@ export const ROOM_INSTANCE_SCHEMA = {
   hotelId: { type: 'string', required: true, label: 'Hotel ID' },
   categoryId: { type: 'string', required: true, label: 'Room Category ID' },
   roomNumber: { type: 'string', required: true, label: 'Room Number' },
+  status: {
+    type: 'enum',
+    required: true,
+    default: 'AVAILABLE',
+    options: ['AVAILABLE', 'OCCUPIED', 'CLEANING', 'MAINTENANCE'],
+    label: 'Room Status',
+  },
+  currentStayId: { type: 'string', required: false, default: null, label: 'Current Stay ID' },
   overrides: {
     type: 'object', required: false, label: 'Per-Room Overrides',
     fields: {

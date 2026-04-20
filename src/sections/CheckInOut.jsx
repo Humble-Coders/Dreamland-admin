@@ -43,16 +43,46 @@ export default function CheckInOut({ data, onChange, errors }) {
       </div>
 
       <div className="bg-brand-bg rounded-xl border border-brand-border divide-y divide-brand-border px-4">
-        <Toggle
-          label="Early Check-In Fee"
-          checked={!!data.earlyCheckInFee}
-          onChange={(val) => onChange({ earlyCheckInFee: val })}
-        />
-        <Toggle
-          label="Late Check-Out Fee"
-          checked={!!data.lateCheckOutFee}
-          onChange={(val) => onChange({ lateCheckOutFee: val })}
-        />
+        <div>
+          <Toggle
+            label="Early Check-In Allowed"
+            checked={!!data.earlyCheckInAllowed}
+            onChange={(val) => onChange({ earlyCheckInAllowed: val, earlyCheckInPrice: val ? (data.earlyCheckInPrice || 0) : 0 })}
+          />
+          {data.earlyCheckInAllowed && (
+            <div className="pb-3">
+              <label className="block text-xs text-brand-muted mb-1">Early Check-In Price (₹)</label>
+              <input
+                type="number"
+                min="0"
+                value={data.earlyCheckInPrice ?? 0}
+                onChange={(e) => onChange({ earlyCheckInPrice: Number(e.target.value) })}
+                className="w-full rounded-lg border border-brand-border bg-brand-surface text-brand-text text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-gold"
+                placeholder="Enter price"
+              />
+            </div>
+          )}
+        </div>
+        <div>
+          <Toggle
+            label="Late Check-Out Allowed"
+            checked={!!data.lateCheckOutAllowed}
+            onChange={(val) => onChange({ lateCheckOutAllowed: val, lateCheckOutPrice: val ? (data.lateCheckOutPrice || 0) : 0 })}
+          />
+          {data.lateCheckOutAllowed && (
+            <div className="pb-3">
+              <label className="block text-xs text-brand-muted mb-1">Late Check-Out Price (₹)</label>
+              <input
+                type="number"
+                min="0"
+                value={data.lateCheckOutPrice ?? 0}
+                onChange={(e) => onChange({ lateCheckOutPrice: Number(e.target.value) })}
+                className="w-full rounded-lg border border-brand-border bg-brand-surface text-brand-text text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-gold"
+                placeholder="Enter price"
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

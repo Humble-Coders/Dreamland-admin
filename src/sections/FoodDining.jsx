@@ -1,5 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, X } from 'lucide-react'
+
+function PlanPriceInput({ price, onChange }) {
+  const [local, setLocal] = useState(String(price))
+
+  useEffect(() => { setLocal(String(price)) }, [price])
+
+  return (
+    <input
+      type="number"
+      min="0"
+      className="form-input w-40"
+      value={local}
+      placeholder="0"
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => onChange(local === '' ? 0 : Number(local))}
+    />
+  )
+}
 
 const MEAL_PLANS = [
   { value: 'Breakfast', label: 'Breakfast Only (B&B)' },
@@ -13,37 +31,33 @@ const CUISINE_SUGGESTIONS = [
   'Thai', 'Japanese', 'Mediterranean', 'Middle Eastern', 'French',
 ]
 
-function Toggle({ label, checked, onChange }) {
-  return (
-    <label className="flex items-center justify-between gap-4 py-2.5 cursor-pointer">
-      <span className="text-sm text-brand-text">{label}</span>
-      <button
-        type="button"
-        onClick={() => onChange(!checked)}
-        className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
-          checked ? 'bg-brand-gold' : 'bg-brand-border'
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-            checked ? 'translate-x-5' : 'translate-x-0'
-          }`}
-        />
-      </button>
-    </label>
-  )
-}
-
 export default function FoodDining({ data, onChange }) {
   const selected = data.mealPlansAvailable || []
   const cuisines = data.cuisines || []
   const [cuisineInput, setCuisineInput] = useState('')
 
+  function isSelected(value) {
+    return selected.some((p) => p.value === value)
+  }
+
+  function getPrice(value) {
+    return selected.find((p) => p.value === value)?.price ?? 0
+  }
+
   function togglePlan(value) {
-    const next = selected.includes(value)
-      ? selected.filter((v) => v !== value)
-      : [...selected, value]
-    onChange({ mealPlansAvailable: next })
+    if (isSelected(value)) {
+      onChange({ mealPlansAvailable: selected.filter((p) => p.value !== value) })
+    } else {
+      onChange({ mealPlansAvailable: [...selected, { value, price: 0 }] })
+    }
+  }
+
+  function setPlanPrice(value, price) {
+    onChange({
+      mealPlansAvailable: selected.map((p) =>
+        p.value === value ? { ...p, price: price === '' ? 0 : Number(price) } : p
+      ),
+    })
   }
 
   function addCuisine(name) {
@@ -64,31 +78,45 @@ export default function FoodDining({ data, onChange }) {
         <p className="form-label mb-3">Available Meal Plans</p>
         <div className="space-y-2">
           {MEAL_PLANS.map(({ value, label }) => {
-            const isSelected = selected.includes(value)
+            const active = isSelected(value)
             return (
-              <button
+              <div
                 key={value}
-                type="button"
-                onClick={() => togglePlan(value)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${
-                  isSelected
-                    ? 'bg-brand-gold/10 border-brand-gold text-brand-gold'
-                    : 'bg-brand-bg border-brand-border text-brand-text hover:border-brand-gold/50'
+                className={`rounded-xl border transition-all ${
+                  active
+                    ? 'bg-brand-gold/10 border-brand-gold'
+                    : 'bg-brand-bg border-brand-border'
                 }`}
               >
-                <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                    isSelected ? 'border-brand-gold bg-brand-gold' : 'border-brand-border'
-                  }`}
+                <button
+                  type="button"
+                  onClick={() => togglePlan(value)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left"
                 >
-                  {isSelected && (
-                    <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
-                      <path d="M1 3L3 5L7 1" stroke="#0a1f13" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                  )}
-                </div>
-                <span className="text-sm">{label}</span>
-              </button>
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      active ? 'border-brand-gold bg-brand-gold' : 'border-brand-border'
+                    }`}
+                  >
+                    {active && (
+                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+                        <path d="M1 3L3 5L7 1" stroke="#0a1f13" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    )}
+                  </div>
+                  <span className={`text-sm ${active ? 'text-brand-gold' : 'text-brand-text'}`}>{label}</span>
+                </button>
+
+                {active && (
+                  <div className="px-4 pb-3">
+                    <label className="text-xs text-brand-muted mb-1 block">Price per person (₹)</label>
+                    <PlanPriceInput
+                      price={getPrice(value)}
+                      onChange={(num) => setPlanPrice(value, num)}
+                    />
+                  </div>
+                )}
+              </div>
             )
           })}
         </div>
@@ -98,7 +126,6 @@ export default function FoodDining({ data, onChange }) {
       <div>
         <p className="form-label mb-2">Cuisines Served</p>
 
-        {/* Added cuisines */}
         {cuisines.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-3">
             {cuisines.map((c) => (
@@ -119,7 +146,6 @@ export default function FoodDining({ data, onChange }) {
           </div>
         )}
 
-        {/* Quick suggestions */}
         <div className="flex flex-wrap gap-1.5 mb-3">
           {CUISINE_SUGGESTIONS.filter((s) => !cuisines.includes(s)).map((s) => (
             <button
@@ -133,7 +159,6 @@ export default function FoodDining({ data, onChange }) {
           ))}
         </div>
 
-        {/* Custom input */}
         <div className="flex gap-2">
           <input
             className="form-input flex-1"
@@ -151,15 +176,6 @@ export default function FoodDining({ data, onChange }) {
             <Plus size={14} /> Add
           </button>
         </div>
-      </div>
-
-      {/* Toggle */}
-      <div className="bg-brand-bg rounded-xl border border-brand-border px-4 divide-y divide-brand-border">
-        <Toggle
-          label="Vegetarian / Inclusive Menu Available"
-          checked={!!data.foodInclusivity}
-          onChange={(val) => onChange({ foodInclusivity: val })}
-        />
       </div>
     </div>
   )
