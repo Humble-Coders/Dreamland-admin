@@ -20,6 +20,13 @@ import toast from 'react-hot-toast'
 
 const HIDDEN_SECTIONS = new Set(['transport', 'categories', 'activity'])
 
+function isVideoUrl(url) {
+  try {
+    const path = decodeURIComponent(new URL(url).pathname)
+    return /\.(mp4|webm|mov|avi|mkv|m4v)$/i.test(path)
+  } catch { return false }
+}
+
 function StarDisplay({ count = 0 }) {
   return (
     <div className="flex items-center gap-0.5">
@@ -185,8 +192,14 @@ export default function HotelDetail() {
       {hotel.photos?.length > 1 && (
         <div className="flex gap-2 px-6 lg:px-8 py-4 overflow-x-auto">
           {hotel.photos.slice(1, 6).map((url, i) => (
-            <div key={i} className="shrink-0 w-24 h-16 rounded-xl overflow-hidden border border-brand-border">
-              <StorageImage src={url} alt="" className="w-full h-full object-cover" />
+            <div key={i} className="shrink-0 w-24 h-16 rounded-xl overflow-hidden border border-brand-border relative">
+              {isVideoUrl(url) ? (
+                <video src={url} className="w-full h-full object-cover" muted playsInline
+                  onMouseEnter={(e) => e.currentTarget.play().catch(() => {})}
+                  onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0 }} />
+              ) : (
+                <StorageImage src={url} alt="" className="w-full h-full object-cover" />
+              )}
             </div>
           ))}
           {hotel.photos.length > 6 && (
