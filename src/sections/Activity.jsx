@@ -5,12 +5,12 @@ import { COLLECTIONS } from '../schema'
 import useSubCollection from '../hooks/useSubCollection'
 import { Plus, Trash2, Loader2, Clock, IndianRupee } from 'lucide-react'
 import Input from '../components/ui/Input'
-import Select from '../components/ui/Select'
+import SearchableSelect from '../components/ui/SearchableSelect'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import toast from 'react-hot-toast'
 
-const CATEGORIES = ['adventure', 'leisure', 'cultural', 'wellness', 'water sports', 'trekking', 'sightseeing', 'food tour']
+const ACTIVITY_CATEGORY_SEEDS = ['adventure', 'leisure', 'cultural', 'wellness', 'water sports', 'trekking', 'sightseeing', 'food tour']
 const empty = () => ({ title: '', category: '', description: '', duration: '', price: '', included: false, media: '' })
 
 export default function Activity({ hotelId, data, onChange }) {
@@ -102,12 +102,12 @@ export default function Activity({ hotelId, data, onChange }) {
           <p className="text-brand-gold text-sm font-medium">New Activity</p>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Title" required placeholder="e.g. Snorkeling Trip" value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
-            <Select label="Category" placeholder="Select" options={CATEGORIES} value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} />
+            <SearchableSelect label="Category" placeholder="Select" collectionName={COLLECTIONS.activityCategories} seedValues={ACTIVITY_CATEGORY_SEEDS} value={form.category} onSelect={(id, name) => setForm((p) => ({ ...p, category: name }))} />
           </div>
           <Input label="Description" placeholder="Brief description" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Duration" placeholder="e.g. 2 hours" value={form.duration} onChange={(e) => setForm((p) => ({ ...p, duration: e.target.value }))} />
-            <Input label="Price (₹)" type="number" placeholder="0 if free" value={form.price} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} />
+            <Input label="Price (₹)" type="number" min={0} placeholder="0 if free" value={form.price} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} />
           </div>
           <label className="flex items-center gap-2 cursor-pointer text-sm text-brand-text">
             <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${form.included ? 'bg-brand-gold border-brand-gold' : 'border-brand-border'}`} onClick={() => setForm((p) => ({ ...p, included: !p.included }))}>

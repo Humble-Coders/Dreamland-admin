@@ -14,6 +14,7 @@ import {
 import Badge from '../components/ui/Badge'
 import RoomDialog from '../components/RoomDialog'
 import RoomInstanceDialog from '../components/RoomInstanceDialog'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 import toast from 'react-hot-toast'
 
 const BED_LABELS = { single: 'Single', twin: 'Twin', double: 'Double', queen: 'Queen', king: 'King', bunk: 'Bunk' }
@@ -303,11 +304,12 @@ export default function RoomCategories() {
   const { hotelId } = useParams()
   const navigate = useNavigate()
   const { hotel, loading: hotelLoading } = useHotel(hotelId)
-  const { docs: rooms, loading: roomsLoading } = useSubCollection(COLLECTIONS.rooms, hotelId)
+  const { docs: rooms, loading: roomsLoading, error: roomsError } = useSubCollection(COLLECTIONS.rooms, hotelId)
   const { docs: allInstances, loading: instancesLoading } = useSubCollection(COLLECTIONS.roomInstances, hotelId)
 
   const [dialogRoom, setDialogRoom] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
+  const [confirmState, setConfirmState] = useState(null)
 
   // Group instances by categoryId
   const instancesByCategory = useMemo(() => {
@@ -321,18 +323,24 @@ export default function RoomCategories() {
 
   const totalRoomInstances = allInstances.length
 
-  async function handleDelete(e, room) {
+  function handleDelete(e, room) {
     e.stopPropagation()
-    if (!window.confirm(`Delete "${room.name}"? This cannot be undone.`)) return
-    setDeletingId(room.id)
-    try {
-      await deleteDoc(doc(db, COLLECTIONS.rooms, room.id))
-      toast.success('Room category deleted')
-    } catch (err) {
-      toast.error('Delete failed: ' + err.message)
-    } finally {
-      setDeletingId(null)
-    }
+    setConfirmState({
+      title: `Delete "${room.name}"?`,
+      message: 'This will permanently remove the room category and cannot be undone.',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setDeletingId(room.id)
+        try {
+          await deleteDoc(doc(db, COLLECTIONS.rooms, room.id))
+          toast.success('Room category deleted')
+        } catch (err) {
+          toast.error('Delete failed: ' + err.message)
+        } finally {
+          setDeletingId(null)
+        }
+      },
+    })
   }
 
   const loading = hotelLoading || roomsLoading
@@ -427,6 +435,12 @@ export default function RoomCategories() {
           <div className="flex justify-center py-16">
             <Loader2 size={30} className="text-brand-gold animate-spin" />
           </div>
+        ) : roomsError ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <p className="text-brand-error text-sm font-medium mb-1">Failed to load room categories</p>
+            <p className="text-brand-muted text-xs max-w-sm">{roomsError}</p>
+            <p className="text-brand-muted text-xs mt-3 max-w-sm">Check your Firestore Security Rules — the <code className="text-brand-gold">rooms</code> collection may not allow reads.</p>
+          </div>
         ) : rooms.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="w-16 h-16 rounded-2xl bg-brand-gold/10 border border-brand-gold/20 flex items-center justify-center mb-4">
@@ -478,6 +492,8 @@ export default function RoomCategories() {
           onClose={() => setDialogRoom(null)}
         />
       )}
+
+      <ConfirmDialog state={confirmState} onClose={() => setConfirmState(null)} />
     </div>
   )
 }

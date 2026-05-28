@@ -36,8 +36,8 @@ export default function SectionDialog({
   return (
     <div className="dialog-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog-box">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border sticky top-0 bg-brand-surface z-10">
+        {/* Header — fixed, never scrolls */}
+        <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-brand-border bg-brand-surface z-10">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-brand-gold/10 border border-brand-gold/20 flex items-center justify-center shrink-0">
               <section.icon size={18} className="text-brand-gold" />
@@ -57,8 +57,8 @@ export default function SectionDialog({
           </button>
         </div>
 
-        {/* Step indicator */}
-        <div className="flex items-center gap-1 px-6 pt-4">
+        {/* Step indicator — fixed, never scrolls */}
+        <div className="shrink-0 flex items-center gap-1 px-6 pt-4">
           {sections.map((s, i) => (
             <button
               key={s.id}
@@ -75,27 +75,30 @@ export default function SectionDialog({
           ))}
         </div>
 
-        {/* Error banner */}
-        {hasErrors && (
-          <div className="mx-6 mt-4 px-4 py-3 bg-brand-error/10 border border-brand-error/30 rounded-xl">
-            <p className="text-brand-error text-sm font-medium">
-              Please fill in the required fields highlighted below
-            </p>
-          </div>
-        )}
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          {/* Error banner */}
+          {hasErrors && (
+            <div className="mx-6 mt-4 px-4 py-3 bg-brand-error/10 border border-brand-error/30 rounded-xl">
+              <p className="text-brand-error text-sm font-medium">
+                Please fill in the required fields highlighted below
+              </p>
+            </div>
+          )}
 
-        {/* Section content */}
-        <div className="px-6 py-5">
-          <SectionComponent
-            data={data}
-            onChange={onChange}
-            errors={sectionErrors}
-            hotelId={hotelId}
-          />
+          {/* Section content */}
+          <div className="px-6 py-5">
+            <SectionComponent
+              data={data}
+              onChange={onChange}
+              errors={sectionErrors}
+              hotelId={hotelId}
+            />
+          </div>
         </div>
 
-        {/* Footer navigation */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-brand-border sticky bottom-0 bg-brand-surface">
+        {/* Footer navigation — fixed, never scrolls */}
+        <div className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-brand-border bg-brand-surface">
           <Button
             variant="ghost"
             size="md"

@@ -1,5 +1,5 @@
 import Input from '../components/ui/Input'
-import RefComboSelect from '../components/ui/RefComboSelect'
+import SearchableSelect from '../components/ui/SearchableSelect'
 import { COLLECTIONS } from '../schema'
 
 // Seed values — written to Firestore on first load if collections are empty
@@ -42,7 +42,7 @@ export default function Parking({ data, onChange }) {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             {/* Parking Type — stores doc ID from parkingTypes collection */}
-            <RefComboSelect
+            <SearchableSelect
               label="Parking Type"
               placeholder="Select parking type"
               collectionName={COLLECTIONS.parkingTypes}
@@ -51,7 +51,7 @@ export default function Parking({ data, onChange }) {
               onSelect={(id, name) => onChange({ parkingTypeId: id, parkingType: name })}
             />
             {/* Parking Category — stores doc ID from parkingCategories collection */}
-            <RefComboSelect
+            <SearchableSelect
               label="Parking Category"
               placeholder="Select category"
               collectionName={COLLECTIONS.parkingCategories}
@@ -63,6 +63,7 @@ export default function Parking({ data, onChange }) {
           <Input
             label="Total Parking Spots"
             type="number"
+            min={0}
             placeholder="e.g. 50"
             value={data.parkingSpots || ''}
             onChange={(e) => onChange({ parkingSpots: Number(e.target.value) })}

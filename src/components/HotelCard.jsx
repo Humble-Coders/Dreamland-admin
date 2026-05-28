@@ -18,7 +18,7 @@ function StarRating({ rating = 0 }) {
   )
 }
 
-export default function HotelCard({ hotel, onEdit, onView }) {
+export default function HotelCard({ hotel, onEdit, onView, onToggleActive }) {
   const coverPhoto = hotel.photos?.[0] || null
   const statusVariant =
     hotel.status === 'active' ? 'active' : hotel.status === 'draft' ? 'draft' : 'inactive'
@@ -66,6 +66,30 @@ export default function HotelCard({ hotel, onEdit, onView }) {
 
         {/* Divider */}
         <div className="border-t border-brand-border" />
+
+        {/* Active toggle */}
+        {onToggleActive && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggleActive(hotel) }}
+            className="flex items-center gap-2.5 w-fit"
+          >
+            <div
+              className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
+                hotel.isActive ? 'bg-brand-gold' : 'bg-brand-border'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                  hotel.isActive ? 'translate-x-4' : 'translate-x-0'
+                }`}
+              />
+            </div>
+            <span className="text-xs text-brand-muted">
+              {hotel.isActive ? 'Active' : 'Inactive'}
+            </span>
+          </button>
+        )}
 
         {/* Actions */}
         <div className="flex gap-2">

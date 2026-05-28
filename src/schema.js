@@ -20,9 +20,8 @@ export const HOTEL_SCHEMA = {
     label: 'Hotel Type',
     lookupCollection: 'hotelTypes',
   },
-  starRating: { type: 'number', required: true, label: 'Star Rating', min: 1, max: 5 },
+  starRating: { type: 'number', label: 'Star Rating', min: 1, max: 5 },
   isActive: { type: 'boolean', required: false, default: true, label: 'Active' },
-  isLuxury: { type: 'boolean', required: false, default: false, label: 'Luxury Property' },
   totalRooms: { type: 'number', required: false, label: 'Total Rooms' },
 
   // ── Contact ──────────────────────────────────────────────────
@@ -59,7 +58,7 @@ export const HOTEL_SCHEMA = {
     required: false,
     label: 'Transport Modes',
     itemSchema: {
-      category: { type: 'enum', options: ['BUS', 'TRAIN', 'AIRPORT', 'METRO'], label: 'Category' },
+      category: { type: 'string', label: 'Category', lookupCollection: 'transportCategories' },
       name: { type: 'string', label: 'Name / Station' },
       distance: { type: 'string', label: 'Distance (text)' },
       distanceInKm: { type: 'number', label: 'Distance (km)' },
@@ -70,6 +69,7 @@ export const HOTEL_SCHEMA = {
   },
 
   // ── Food & Dining ──────────────────────────────────────────────
+  cuisines: { type: 'array', required: false, label: 'Cuisines Served', itemType: 'string' },
   mealPlansAvailable: {
     type: 'array',
     required: false,
@@ -82,12 +82,10 @@ export const HOTEL_SCHEMA = {
 
   // ── Parking ───────────────────────────────────────────────────
   parkingAvailable: { type: 'boolean', required: false, default: false, label: 'Parking Available' },
-  parkingType: {
-    type: 'string',
-    required: false,
-    label: 'Parking Type',
-    lookupCollection: 'parkingTypes',
-  },
+  parkingType: { type: 'string', required: false, label: 'Parking Type', lookupCollection: 'parkingTypes' },
+  parkingTypeId: { type: 'string', required: false, label: 'Parking Type ID' },
+  parkingCategory: { type: 'string', required: false, label: 'Parking Category', lookupCollection: 'parkingCategories' },
+  parkingCategoryId: { type: 'string', required: false, label: 'Parking Category ID' },
   parkingSpots: { type: 'number', required: false, label: 'Total Parking Spots' },
 
   // ── Property Highlights ───────────────────────────────────────
@@ -107,6 +105,7 @@ export const HOTEL_SCHEMA = {
   },
 
   // ── Policies & Compliance ─────────────────────────────────────
+  customPolicies: { type: 'array', required: false, label: 'Additional Policies', itemType: 'string' },
   pdfRequired: { type: 'boolean', required: false, default: false, label: 'ID/PDF Required at Check-in' },
   privacyPremium: { type: 'boolean', required: false, default: false, label: 'Privacy Premium Room' },
   ageRestriction: { type: 'number', required: false, label: 'Minimum Age Restriction' },
@@ -168,7 +167,7 @@ export const REVIEW_SCHEMA = {
 
 // ---------- REQUIRED FIELDS PER SECTION (for wizard validation) ----------
 export const SECTION_REQUIRED_FIELDS = {
-  basicInfo: ['name', 'hotelType', 'starRating'],
+  basicInfo: ['name', 'hotelType'],
   contact: ['contactPhone', 'contactEmail'],
   checkInOut: ['checkInTime', 'checkOutTime'],
   location: ['address', 'city', 'country'],
@@ -205,6 +204,8 @@ export const COLLECTIONS = {
   bedTypes: 'bedTypes',
   viewTypes: 'viewTypes',
   bathroomTypes: 'bathroomTypes',
+  transportCategories: 'transportCategories',
+  activityCategories: 'activityCategories',
 };
 
 // ---------- ATTRACTION DOCUMENT ----------
@@ -234,6 +235,7 @@ export const CATEGORY_SCHEMA = {
 export const ROOM_SCHEMA = {
   hotelId: { type: 'string', required: true, label: 'Hotel ID' },
   name: { type: 'string', required: true, label: 'Room Category Name' },
+  noOfRooms: { type: 'number', required: false, label: 'Number of Rooms' },
   description: { type: 'string', required: false, label: 'Description' },
   capacity: { type: 'number', required: true, label: 'Capacity (guests)' },
   maxOccupancy: { type: 'number', required: false, label: 'Max Occupancy' },
@@ -242,10 +244,10 @@ export const ROOM_SCHEMA = {
   available: { type: 'boolean', required: false, default: true, label: 'Available for Booking' },
   bedType: { type: 'string', required: false, label: 'Bed Type', lookupCollection: 'bedTypes' },
   noOfBeds: { type: 'number', required: false, label: 'Number of Beds' },
-  view: { type: 'string', required: false, label: 'Room View' },
+  view: { type: 'string', required: false, label: 'Room View', lookupCollection: 'viewTypes' },
   roomSizeSqft: { type: 'number', required: false, label: 'Room Size (sqft)' },
-  floor: { type: 'string', required: false, label: 'Floor' },
-  bathroomType: { type: 'string', required: false, label: 'Bathroom Type' },
+  floor: { type: 'number', required: false, label: 'Floor' },
+  bathroomType: { type: 'string', required: false, label: 'Bathroom Type', lookupCollection: 'bathroomTypes' },
   smokingAllowed: { type: 'boolean', required: false, default: false, label: 'Smoking Allowed' },
   accessibilityFeatures: { type: 'array', required: false, label: 'Accessibility Features', itemType: 'string' },
   connectedRooms: { type: 'boolean', required: false, default: false, label: 'Connected Rooms Available' },
@@ -315,7 +317,7 @@ export const TRAVEL_LIST_SCHEMA = {
   hotelId: { type: 'string', required: true, label: 'Hotel ID' },
   title: { type: 'string', required: true, label: 'Activity Title' },
   description: { type: 'string', required: false, label: 'Description' },
-  category: { type: 'string', required: false, label: 'Category' },
+  category: { type: 'string', required: false, label: 'Category', lookupCollection: 'activityCategories' },
   duration: { type: 'string', required: false, label: 'Duration' },
   price: { type: 'number', required: false, label: 'Price (₹)' },
   included: { type: 'boolean', required: false, default: false, label: 'Included in Package' },

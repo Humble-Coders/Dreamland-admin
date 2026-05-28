@@ -639,8 +639,22 @@ export default function AddHotel() {
   const editId = searchParams.get('id')
   const isNew = searchParams.get('new') === '1'
 
-  if (!editId && !isNew) return <AddHotelLanding />
-  // Use editId as key so the component fully remounts when switching between different hotels.
-  // For new mode, key is 'new' — stable until the first auto-save updates the URL to ?id=xxx.
-  return <AddHotelEditor key={editId || 'new'} initialHotelId={editId} />
+  // Stable key: prevents remounting the editor when the first auto-save for a new
+  // hotel changes the URL from ?new=1 to ?id=xxx (which would close any open dialog).
+  // Switching between two different existing hotels still remounts correctly.
+  const stableKey = useRef(null)
+
+  if (!editId && !isNew) {
+    stableKey.current = null
+    return <AddHotelLanding />
+  }
+
+  if (stableKey.current === null) {
+    stableKey.current = editId || 'new'
+  } else if (editId && stableKey.current !== 'new') {
+    // Allow remounting when navigating between two different existing hotels
+    stableKey.current = editId
+  }
+
+  return <AddHotelEditor key={stableKey.current} initialHotelId={editId} />
 }

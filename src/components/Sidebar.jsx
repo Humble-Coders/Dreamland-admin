@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Hotel, PlusCircle, CalendarDays, Settings, X } from 'lucide-react'
+import { Hotel, PlusCircle, CalendarDays, Settings, X, LogOut } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
 const NAV_ITEMS = [
   { to: '/hotels', label: 'Hotels', icon: Hotel },
@@ -9,8 +10,9 @@ const NAV_ITEMS = [
   { to: '/app-settings', label: 'App Settings', icon: Settings },
 ]
 
-
 function Sidebar({ open, onClose }) {
+  const { user, signOut } = useAuth()
+
   return (
     <aside
       className={`
@@ -65,8 +67,25 @@ function Sidebar({ open, onClose }) {
         ))}
       </nav>
 
-      {/* Footer */}
-      <div className="px-6 py-4 border-t border-brand-border">
+      {/* Footer — user info + sign out */}
+      <div className="px-4 py-4 border-t border-brand-border space-y-3">
+        {user && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-brand-bg rounded-xl border border-brand-border">
+            <div className="w-7 h-7 rounded-full bg-brand-gold/20 border border-brand-gold/30 flex items-center justify-center shrink-0">
+              <span className="text-brand-gold text-xs font-semibold uppercase">
+                {user.email?.[0] ?? 'A'}
+              </span>
+            </div>
+            <p className="text-brand-muted text-xs truncate flex-1">{user.email}</p>
+          </div>
+        )}
+        <button
+          onClick={signOut}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-brand-muted hover:text-brand-error hover:bg-brand-error/10 border border-transparent hover:border-brand-error/30 text-sm transition-colors"
+        >
+          <LogOut size={15} />
+          Sign Out
+        </button>
         <p className="text-brand-muted text-xs text-center leading-relaxed">
           © 2026 Dreamland Hotels
           <br />

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import Input from '../components/ui/Input'
-import ComboSelect from '../components/ui/ComboSelect'
 
 const POLICY_SUGGESTIONS = [
   'No smoking indoors', 'No alcohol on premises', 'Quiet hours after 10 PM',

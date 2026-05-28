@@ -2,17 +2,17 @@ import { useState, useEffect, useRef } from 'react'
 import {
   addDoc, updateDoc, doc, getDocs, collection, serverTimestamp, writeBatch,
 } from 'firebase/firestore'
-import { db } from '../firebase'
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
+import { db, storage } from '../firebase'
 import { COLLECTIONS } from '../schema'
 import useLookupCollection from '../hooks/useLookupCollection'
 import {
   X, ChevronLeft, ChevronRight, Loader2, Save, Plus,
   BedDouble, Settings2, IndianRupee, ShieldCheck, Images, Gift,
-  CheckCircle2, Hash,
+  CheckCircle2, Hash, Upload, ImagePlus, Star,
 } from 'lucide-react'
 import Input from './ui/Input'
-import Select from './ui/Select'
-import RefComboSelect from './ui/RefComboSelect'
+import SearchableSelect from './ui/SearchableSelect'
 import Button from './ui/Button'
 import toast from 'react-hot-toast'
 
@@ -225,7 +225,7 @@ function SeasonalPricingInput({ value = [], onChange }) {
         <div className="bg-brand-bg border border-brand-gold/30 rounded-xl p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <Input label="Season Name" placeholder="e.g. Peak Summer" value={entry.label} onChange={(e) => setEntry((p) => ({ ...p, label: e.target.value }))} />
-            <Input label="Price / Night (₹)" type="number" placeholder="e.g. 8000" value={entry.price} onChange={(e) => setEntry((p) => ({ ...p, price: e.target.value }))} />
+            <Input label="Price / Night (₹)" type="number" min={0} placeholder="e.g. 8000" value={entry.price} onChange={(e) => setEntry((p) => ({ ...p, price: e.target.value }))} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Start Date" type="date" value={entry.startDate} onChange={(e) => setEntry((p) => ({ ...p, startDate: e.target.value }))} />
@@ -268,12 +268,12 @@ function StepBasic({ form, set }) {
         <textarea className="form-input resize-none" rows={3} placeholder="Describe what makes this room special…" value={form.description} onChange={(e) => set({ description: e.target.value })} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Input label="Price per Night (₹)" required type="number" placeholder="e.g. 5000" value={form.price} onChange={(e) => set({ price: e.target.value })} />
-        <Input label="Tax (%)" type="number" placeholder="e.g. 18" value={form.tax} onChange={(e) => set({ tax: e.target.value })} />
+        <Input label="Price per Night (₹)" required type="number" min={0} placeholder="e.g. 5000" value={form.price} onChange={(e) => set({ price: e.target.value })} />
+        <Input label="Tax (%)" type="number" min={0} max={100} placeholder="e.g. 18" value={form.tax} onChange={(e) => set({ tax: e.target.value })} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Input label="Capacity" required type="number" placeholder="2" value={form.capacity} onChange={(e) => set({ capacity: e.target.value })} />
-        <Input label="Max Occupancy" type="number" placeholder="3" value={form.maxOccupancy} onChange={(e) => set({ maxOccupancy: e.target.value })} />
+        <Input label="Capacity" required type="number" min={1} placeholder="2" value={form.capacity} onChange={(e) => set({ capacity: e.target.value })} />
+        <Input label="Max Occupancy" type="number" min={1} placeholder="3" value={form.maxOccupancy} onChange={(e) => set({ maxOccupancy: e.target.value })} />
       </div>
       <div className="bg-brand-bg rounded-xl border border-brand-border px-4">
         <Toggle label="Available for Booking" description="Guests can see and book this room" checked={form.available} onChange={(v) => set({ available: v })} />
@@ -286,37 +286,37 @@ function StepPhysical({ form, set, lookup }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <RefComboSelect
+        <SearchableSelect
           label="Bed Type"
           placeholder="Select or add"
           collectionName={COLLECTIONS.bedTypes}
           seedValues={['single', 'twin', 'double', 'queen', 'king', 'bunk']}
-          value={form.bedTypeId || ''}
+          value={form.bedTypeId || form.bedType}
           onSelect={(id, name) => set({ bedTypeId: id, bedType: name })}
         />
-        <Input label="Number of Beds" type="number" placeholder="e.g. 1" value={form.noOfBeds} onChange={(e) => set({ noOfBeds: e.target.value })} />
+        <Input label="Number of Beds" type="number" min={1} placeholder="e.g. 1" value={form.noOfBeds} onChange={(e) => set({ noOfBeds: e.target.value })} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <RefComboSelect
+        <SearchableSelect
           label="View"
           placeholder="Select or add"
           collectionName={COLLECTIONS.viewTypes}
           seedValues={['pool', 'garden', 'sea', 'city', 'mountain', 'courtyard']}
-          value={form.viewId || ''}
+          value={form.viewId || form.view}
           onSelect={(id, name) => set({ viewId: id, view: name })}
         />
-        <RefComboSelect
+        <SearchableSelect
           label="Bathroom Type"
           placeholder="Select or add"
           collectionName={COLLECTIONS.bathroomTypes}
           seedValues={['attached', 'shared', 'en-suite']}
-          value={form.bathroomTypeId || ''}
+          value={form.bathroomTypeId || form.bathroomType}
           onSelect={(id, name) => set({ bathroomTypeId: id, bathroomType: name })}
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Input label="Room Size (sq ft)" type="number" placeholder="e.g. 350" value={form.roomSizeSqft} onChange={(e) => set({ roomSizeSqft: e.target.value })} />
-        <Input label="Floor" placeholder="e.g. 3rd floor" value={form.floor} onChange={(e) => set({ floor: e.target.value })} />
+        <Input label="Room Size (sq ft)" type="number" min={1} placeholder="e.g. 350" value={form.roomSizeSqft} onChange={(e) => set({ roomSizeSqft: e.target.value })} />
+        <Input label="Floor" type="number" placeholder="e.g. 3" value={form.floor} onChange={(e) => set({ floor: e.target.value })} />
       </div>
       <div className="bg-brand-bg rounded-xl border border-brand-border px-4 divide-y divide-brand-border">
         <Toggle label="Smoking Allowed" checked={form.smokingAllowed} onChange={(v) => set({ smokingAllowed: v })} />
@@ -331,14 +331,14 @@ function StepPricing({ form, set }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <Input label="Extra Guest Charge (₹)" type="number" placeholder="e.g. 500" value={form.extraGuestCharge} onChange={(e) => set({ extraGuestCharge: e.target.value })} />
-        <Input label="Minimum Stay (nights)" type="number" placeholder="e.g. 1" value={form.minStayNights} onChange={(e) => set({ minStayNights: e.target.value })} />
+        <Input label="Extra Guest Charge (₹)" type="number" min={0} placeholder="e.g. 500" value={form.extraGuestCharge} onChange={(e) => set({ extraGuestCharge: e.target.value })} />
+        <Input label="Minimum Stay (nights)" type="number" min={1} placeholder="e.g. 1" value={form.minStayNights} onChange={(e) => set({ minStayNights: e.target.value })} />
       </div>
       <div>
         <label className="form-label">Weekend Pricing (₹ / night)</label>
         <div className="grid grid-cols-2 gap-3">
-          <Input placeholder="Friday price" type="number" value={form.weekendPricingFri} onChange={(e) => set({ weekendPricingFri: e.target.value })} />
-          <Input placeholder="Saturday price" type="number" value={form.weekendPricingSat} onChange={(e) => set({ weekendPricingSat: e.target.value })} />
+          <Input placeholder="Friday price" type="number" min={0} value={form.weekendPricingFri} onChange={(e) => set({ weekendPricingFri: e.target.value })} />
+          <Input placeholder="Saturday price" type="number" min={0} value={form.weekendPricingSat} onChange={(e) => set({ weekendPricingSat: e.target.value })} />
         </div>
       </div>
       <SeasonalPricingInput value={form.seasonalPricing} onChange={(v) => set({ seasonalPricing: v })} />
@@ -353,8 +353,8 @@ function StepCancellation({ form, set }) {
         <Toggle label="Free Cancellation Available" checked={form.freeCancellation} onChange={(v) => set({ freeCancellation: v })} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Input label="Free Before Check-in (days)" type="number" placeholder="e.g. 3" value={form.cancellationFreeBefore} onChange={(e) => set({ cancellationFreeBefore: e.target.value })} />
-        <Input label="Refund Percentage (%)" type="number" placeholder="e.g. 100" value={form.cancellationRefundPercent} onChange={(e) => set({ cancellationRefundPercent: e.target.value })} />
+        <Input label="Free Before Check-in (hours)" type="number" min={0} placeholder="e.g. 72" value={form.cancellationFreeBefore} onChange={(e) => set({ cancellationFreeBefore: e.target.value })} />
+        <Input label="Refund Percentage (%)" type="number" min={0} max={100} placeholder="e.g. 100" value={form.cancellationRefundPercent} onChange={(e) => set({ cancellationRefundPercent: e.target.value })} />
       </div>
       <div>
         <label className="form-label">Policy Note</label>
@@ -364,11 +364,194 @@ function StepCancellation({ form, set }) {
   )
 }
 
+// ─── Media helpers ────────────────────────────────────────────────────────────
+
+function isVideoUrl(url) {
+  try {
+    const path = decodeURIComponent(new URL(url).pathname)
+    return /\.(mp4|webm|mov|avi|mkv|m4v)$/i.test(path)
+  } catch { return false }
+}
+
+async function compressVideo(file, onProgress) {
+  if (!('MediaRecorder' in window)) return file
+  const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+    .find((t) => MediaRecorder.isTypeSupported(t))
+  if (!mimeType) return file
+
+  return new Promise((resolve) => {
+    const video = document.createElement('video')
+    video.muted = true
+    video.playsInline = true
+    const objectUrl = URL.createObjectURL(file)
+    video.src = objectUrl
+    const cleanup = () => URL.revokeObjectURL(objectUrl)
+
+    video.onloadedmetadata = () => {
+      const duration = video.duration || 1
+      const targetBitrate = Math.max(Math.round((file.size * 8 / duration) * 0.8), 200_000)
+      let stream
+      try { stream = video.captureStream() } catch { cleanup(); resolve(file); return }
+
+      const recorder = new MediaRecorder(stream, {
+        mimeType, videoBitsPerSecond: targetBitrate, audioBitsPerSecond: 128_000,
+      })
+      const chunks = []
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
+      recorder.onstop = () => {
+        cleanup()
+        const name = file.name.replace(/\.[^.]+$/, '.webm')
+        resolve(new File([new Blob(chunks, { type: mimeType })], name, { type: mimeType }))
+      }
+      recorder.onerror = () => { cleanup(); resolve(file) }
+      video.ontimeupdate = () => onProgress?.(video.currentTime / duration)
+      video.onended = () => recorder.stop()
+      video.onerror = () => { cleanup(); resolve(file) }
+      recorder.start(100)
+      video.play().catch(() => { cleanup(); resolve(file) })
+    }
+    video.onerror = () => { cleanup(); resolve(file) }
+  })
+}
+
+function RoomMediaInput({ value = [], onChange }) {
+  const [uploading, setUploading] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState('')
+  const [progress, setProgress] = useState(0)
+  const inputRef = useRef(null)
+
+  async function handleFileChange(e) {
+    const files = Array.from(e.target.files)
+    if (!files.length) return
+    setUploading(true)
+    setProgress(0)
+    try {
+      const urls = []
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const isVideo = file.type.startsWith('video/')
+        let processedFile = file
+        if (isVideo) {
+          setUploadStatus(`Compressing video ${i + 1}/${files.length}…`)
+          processedFile = await compressVideo(file, (p) => setProgress(Math.round(p * 50)))
+        }
+        setUploadStatus(`Uploading ${i + 1}/${files.length}…`)
+        const storageRef = ref(storage, `rooms/${Date.now()}_${processedFile.name}`)
+        await new Promise((resolve, reject) => {
+          const task = uploadBytesResumable(storageRef, processedFile)
+          task.on(
+            'state_changed',
+            (snap) => {
+              const base = isVideo ? 50 : 0
+              const range = isVideo ? 50 : 100
+              setProgress(base + Math.round((snap.bytesTransferred / snap.totalBytes) * range))
+            },
+            reject,
+            async () => { urls.push(await getDownloadURL(task.snapshot.ref)); resolve() }
+          )
+        })
+      }
+      onChange([...value, ...urls])
+      toast.success(`${urls.length} file${urls.length > 1 ? 's' : ''} uploaded`)
+    } catch (err) {
+      toast.error('Upload failed: ' + err.message)
+    } finally {
+      setUploading(false)
+      setProgress(0)
+      setUploadStatus('')
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  function remove(idx) { onChange(value.filter((_, i) => i !== idx)) }
+
+  function setCover(idx) {
+    if (idx === 0) return
+    const next = [...value]
+    const [item] = next.splice(idx, 1)
+    next.unshift(item)
+    onChange(next)
+  }
+
+  return (
+    <div className="space-y-3">
+      <label className="form-label">Photos &amp; Videos</label>
+
+      <div
+        onClick={() => !uploading && inputRef.current?.click()}
+        className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed
+          py-6 px-4 cursor-pointer transition-colors
+          ${uploading ? 'cursor-wait border-brand-border' : 'border-brand-border hover:border-brand-gold'}`}
+      >
+        {uploading ? (
+          <>
+            <Loader2 size={28} className="text-brand-gold animate-spin" />
+            <p className="text-brand-muted text-sm">{uploadStatus} {progress}%</p>
+            <div className="w-36 h-1.5 bg-brand-border rounded-full overflow-hidden">
+              <div className="h-full bg-brand-gold rounded-full transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          </>
+        ) : (
+          <>
+            <ImagePlus size={28} className="text-brand-muted" />
+            <p className="text-brand-text text-sm font-medium">Click to upload photos or videos</p>
+            <p className="text-brand-muted text-xs">PNG, JPG, WEBP, MP4, MOV — multiple allowed</p>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-gold/10 border border-brand-gold/30 rounded-lg">
+              <Upload size={13} className="text-brand-gold" />
+              <span className="text-brand-gold text-xs font-medium">Choose files</span>
+            </div>
+          </>
+        )}
+        <input ref={inputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleFileChange} />
+      </div>
+
+      {value.length > 0 && (
+        <div className="grid grid-cols-3 gap-2">
+          {value.map((url, idx) => {
+            const isVid = isVideoUrl(url)
+            return (
+              <div key={idx} className="relative group aspect-video rounded-lg overflow-hidden bg-brand-bg">
+                {isVid ? (
+                  <video src={url} className="w-full h-full object-cover" muted playsInline
+                    onMouseEnter={(e) => e.currentTarget.play()}
+                    onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0 }} />
+                ) : (
+                  <img src={url} alt={`Media ${idx + 1}`} className="w-full h-full object-cover" />
+                )}
+                <button type="button" onClick={() => remove(idx)}
+                  className="absolute top-1 right-1 w-6 h-6 bg-black/70 hover:bg-brand-error rounded-full
+                             flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <X size={12} className="text-white" />
+                </button>
+                {isVid && (
+                  <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">Video</span>
+                )}
+                {idx === 0 ? (
+                  <span className="absolute bottom-1 left-1 text-[10px] bg-brand-gold text-brand-bg px-1.5 py-0.5 rounded font-medium">Cover</span>
+                ) : (
+                  <button type="button" onClick={() => setCover(idx)}
+                    className="absolute bottom-1 left-1 flex items-center gap-1 text-[10px]
+                               bg-black/60 hover:bg-brand-gold text-white hover:text-brand-bg
+                               px-1.5 py-0.5 rounded font-medium opacity-0 group-hover:opacity-100 transition-all">
+                    <Star size={9} /> Set Cover
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Step: Amenities & Media ──────────────────────────────────────────────────
+
 function StepAmenities({ form, set, lookup }) {
   return (
     <div className="space-y-5">
       <LookupTagInput label="Room Amenities" value={form.amenities} onChange={(v) => set({ amenities: v })} placeholder="e.g. Air Conditioning" collectionName="roomAmenities" docs={lookup.amenityDocs} docsLoading={lookup.amenityLoading} />
-      <URLListInput label="Photo URLs" value={form.media} onChange={(v) => set({ media: v })} />
+      <RoomMediaInput value={form.media} onChange={(v) => set({ media: v })} />
     </div>
   )
 }
@@ -451,8 +634,8 @@ function RoomNumbersStep({ savedCategory, hotelId, onClose }) {
 
   return (
     <>
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border sticky top-0 bg-brand-surface z-10">
+      {/* Header — fixed */}
+      <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-brand-border bg-brand-surface z-10">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-brand-success/10 border border-brand-success/20 flex items-center justify-center shrink-0">
             <CheckCircle2 size={18} className="text-brand-success" />
@@ -467,7 +650,8 @@ function RoomNumbersStep({ savedCategory, hotelId, onClose }) {
         </button>
       </div>
 
-      {/* Content */}
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto overscroll-contain">
       <div className="px-6 py-5 space-y-5">
         <p className="text-brand-muted text-sm leading-relaxed">
           Add the specific room numbers that belong to this category. Each room will inherit all settings from <span className="text-brand-text font-medium">{savedCategory.name}</span>, and you can customise individual rooms later.
@@ -540,9 +724,10 @@ function RoomNumbersStep({ savedCategory, hotelId, onClose }) {
           </div>
         )}
       </div>
+      </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between px-6 py-4 border-t border-brand-border sticky bottom-0 bg-brand-surface">
+      {/* Footer — fixed */}
+      <div className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-brand-border bg-brand-surface">
         <button
           type="button"
           onClick={onClose}
@@ -713,7 +898,27 @@ export default function RoomDialog({ hotelId, room, onClose }) {
     if (step === 0) {
       if (!form.name.trim()) { toast.error('Room category name is required'); return false }
       if (form.price === '' || form.price === null) { toast.error('Price per night is required'); return false }
-      if (!form.capacity) { toast.error('Capacity is required'); return false }
+      if (Number(form.price) < 0) { toast.error('Price cannot be negative'); return false }
+      if (form.tax !== '' && (Number(form.tax) < 0 || Number(form.tax) > 100)) { toast.error('Tax must be between 0 and 100%'); return false }
+      if (!form.capacity || Number(form.capacity) < 1) { toast.error('Capacity must be at least 1'); return false }
+      if (form.maxOccupancy !== '' && Number(form.maxOccupancy) < 1) { toast.error('Max occupancy must be at least 1'); return false }
+      if (form.maxOccupancy && Number(form.maxOccupancy) < Number(form.capacity)) {
+        toast('Max occupancy is less than capacity — guests may not be able to use all beds', { icon: '⚠️' })
+      }
+    }
+    if (step === 1) {
+      if (form.noOfBeds !== '' && Number(form.noOfBeds) < 1) { toast.error('Number of beds must be at least 1'); return false }
+      if (form.roomSizeSqft !== '' && Number(form.roomSizeSqft) < 1) { toast.error('Room size must be at least 1 sq ft'); return false }
+    }
+    if (step === 2) {
+      if (form.extraGuestCharge !== '' && Number(form.extraGuestCharge) < 0) { toast.error('Extra guest charge cannot be negative'); return false }
+      if (form.minStayNights !== '' && Number(form.minStayNights) < 1) { toast.error('Minimum stay must be at least 1 night'); return false }
+      if (form.weekendPricingFri !== '' && Number(form.weekendPricingFri) < 0) { toast.error('Friday price cannot be negative'); return false }
+      if (form.weekendPricingSat !== '' && Number(form.weekendPricingSat) < 0) { toast.error('Saturday price cannot be negative'); return false }
+    }
+    if (step === 3) {
+      if (form.cancellationFreeBefore !== '' && Number(form.cancellationFreeBefore) < 0) { toast.error('Free cancellation window cannot be negative'); return false }
+      if (form.cancellationRefundPercent !== '' && (Number(form.cancellationRefundPercent) < 0 || Number(form.cancellationRefundPercent) > 100)) { toast.error('Refund percentage must be between 0 and 100'); return false }
     }
     return true
   }
@@ -740,7 +945,7 @@ export default function RoomDialog({ hotelId, room, onClose }) {
         noOfBeds: num(form.noOfBeds),
         view: form.view || null,
         roomSizeSqft: num(form.roomSizeSqft),
-        floor: form.floor || null,
+        floor: num(form.floor),
         bathroomType: form.bathroomType || null,
         smokingAllowed: form.smokingAllowed,
         accessibilityFeatures: form.accessibilityFeatures,
@@ -796,8 +1001,8 @@ export default function RoomDialog({ hotelId, room, onClose }) {
           <RoomNumbersStep savedCategory={savedCategory} hotelId={hotelId} onClose={onClose} />
         ) : (
           <>
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border sticky top-0 bg-brand-surface z-10">
+            {/* Header — fixed */}
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-brand-border bg-brand-surface z-10">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-brand-gold/10 border border-brand-gold/20 flex items-center justify-center shrink-0">
                   <StepIcon size={18} className="text-brand-gold" />
@@ -812,8 +1017,8 @@ export default function RoomDialog({ hotelId, room, onClose }) {
               </button>
             </div>
 
-            {/* Step indicator */}
-            <div className="flex items-center gap-1 px-6 pt-4">
+            {/* Step indicator — fixed */}
+            <div className="shrink-0 flex items-center gap-1 px-6 pt-4">
               {STEPS.map((s, i) => (
                 <button key={s.id} onClick={() => setStep(i)} title={s.label}
                   className={`h-1.5 rounded-full transition-all flex-1 ${
@@ -822,13 +1027,15 @@ export default function RoomDialog({ hotelId, room, onClose }) {
               ))}
             </div>
 
-            {/* Content */}
-            <div className="px-6 py-5">
-              <CurrentStep form={form} set={set} lookup={lookup} />
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto overscroll-contain">
+              <div className="px-6 py-5">
+                <CurrentStep form={form} set={set} lookup={lookup} />
+              </div>
             </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-brand-border sticky bottom-0 bg-brand-surface">
+            {/* Footer — fixed */}
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-brand-border bg-brand-surface">
               {showDiscardConfirm ? (
                 <>
                   <p className="text-brand-text text-sm font-medium">Discard all information?</p>

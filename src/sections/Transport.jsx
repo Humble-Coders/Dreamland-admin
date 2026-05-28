@@ -1,8 +1,9 @@
 import { Plus, Trash2 } from 'lucide-react'
 import Input from '../components/ui/Input'
-import Select from '../components/ui/Select'
+import SearchableSelect from '../components/ui/SearchableSelect'
+import { COLLECTIONS } from '../schema'
 
-const CATEGORIES = ['BUS', 'TRAIN', 'AIRPORT', 'METRO']
+const TRANSPORT_CATEGORY_SEEDS = ['bus', 'train', 'airport', 'metro']
 
 const emptyMode = () => ({
   category: '',
@@ -50,12 +51,13 @@ export default function Transport({ data, onChange }) {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Select
+            <SearchableSelect
               label="Category"
               placeholder="Select"
-              options={CATEGORIES}
+              collectionName={COLLECTIONS.transportCategories}
+              seedValues={TRANSPORT_CATEGORY_SEEDS}
               value={mode.category}
-              onChange={(e) => updateMode(idx, { category: e.target.value })}
+              onSelect={(id, name) => updateMode(idx, { category: name })}
             />
             <Input
               label="Name / Station"
@@ -76,6 +78,7 @@ export default function Transport({ data, onChange }) {
               label="Distance (km)"
               type="number"
               step="0.1"
+              min={0}
               placeholder="e.g. 2.5"
               value={mode.distanceInKm}
               onChange={(e) => updateMode(idx, { distanceInKm: parseFloat(e.target.value) || '' })}

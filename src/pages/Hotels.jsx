@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Plus, SlidersHorizontal, AlertCircle, Loader2 } from 'lucide-react'
+import { doc, updateDoc } from 'firebase/firestore'
+import toast from 'react-hot-toast'
+import { db } from '../firebase'
+import { COLLECTIONS } from '../schema'
 import useHotels from '../hooks/useHotels'
 import HotelCard from '../components/HotelCard'
 
@@ -18,6 +22,18 @@ export default function Hotels() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('All Types')
   const [ratingFilter, setRatingFilter] = useState('')
+
+  async function handleToggleActive(hotel) {
+    if (!hotel.isActive && hotel.status?.toUpperCase() === 'DRAFT') {
+      toast.error('Publish the hotel first before marking it as active')
+      return
+    }
+    try {
+      await updateDoc(doc(db, COLLECTIONS.hotels, hotel.id), { isActive: !hotel.isActive })
+    } catch {
+      toast.error('Failed to update hotel status')
+    }
+  }
 
   const filtered = hotels.filter((h) => {
     if (h.status === 'draft') return false  // drafts live on Add Hotel page only
@@ -147,6 +163,7 @@ export default function Hotels() {
               hotel={hotel}
               onEdit={() => navigate(`/add-hotel?id=${hotel.id}`)}
               onView={() => navigate(`/hotels/${hotel.id}`)}
+              onToggleActive={handleToggleActive}
             />
           ))}
         </div>

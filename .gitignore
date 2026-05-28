@@ -1,6 +1,3 @@
-# Firebase credentials — NEVER commit this file
-src/firebase.js
-
 # Environment variables
 .env
 .env.local
@@ -13,6 +10,11 @@ node_modules/
 # Build output
 dist/
 dist-ssr/
+
+# Generated public assets (copied from node_modules by Vite plugin at build time)
+public/coi-serviceworker.js
+public/ffmpeg-core.js
+public/ffmpeg-core.wasm
 
 # Editor
 .vscode/

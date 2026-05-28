@@ -61,8 +61,8 @@
   }
 
   .dialog-box {
-    @apply bg-brand-surface border border-brand-border rounded-2xl shadow-dialog
-           w-full max-w-2xl max-h-[90vh] overflow-y-auto;
+    @apply bg-brand-surface border border-brand-border rounded-[2rem] shadow-dialog
+           w-full max-w-2xl h-[78vh] flex flex-col overflow-hidden;
   }
 }
 

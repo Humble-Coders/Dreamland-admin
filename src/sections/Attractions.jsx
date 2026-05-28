@@ -5,7 +5,7 @@ import { COLLECTIONS } from '../schema'
 import useSubCollection from '../hooks/useSubCollection'
 import { Plus, Trash2, Loader2, Camera } from 'lucide-react'
 import Input from '../components/ui/Input'
-import RefComboSelect from '../components/ui/RefComboSelect'
+import SearchableSelect from '../components/ui/SearchableSelect'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import toast from 'react-hot-toast'
@@ -103,7 +103,7 @@ export default function Attractions({ hotelId, data, onChange }) {
           <p className="text-brand-gold text-sm font-medium">New Attraction</p>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Name" required placeholder="e.g. Taj Mahal" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
-            <RefComboSelect
+            <SearchableSelect
               label="Category"
               required
               placeholder="Select"

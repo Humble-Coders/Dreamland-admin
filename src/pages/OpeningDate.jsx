@@ -26,8 +26,23 @@ function inputToTs(val) {
 function HotelDateRow({ hotel }) {
   const [opening, setOpening] = useState(tsToInput(hotel.openingDate))
   const [closing, setClosing] = useState(tsToInput(hotel.closingDate))
-  const [active, setActive] = useState(hotel.status === 'active')
   const [saving, setSaving] = useState(false)
+  const [togglingActive, setTogglingActive] = useState(false)
+
+  async function handleToggleActive() {
+    if (!hotel.isActive && hotel.status?.toUpperCase() === 'DRAFT') {
+      toast.error('Publish the hotel first before marking it as active')
+      return
+    }
+    setTogglingActive(true)
+    try {
+      await updateDoc(doc(db, COLLECTIONS.hotels, hotel.id), { isActive: !hotel.isActive })
+    } catch (err) {
+      toast.error('Failed to update: ' + err.message)
+    } finally {
+      setTogglingActive(false)
+    }
+  }
 
   async function save() {
     setSaving(true)
@@ -35,7 +50,6 @@ function HotelDateRow({ hotel }) {
       await updateDoc(doc(db, COLLECTIONS.hotels, hotel.id), {
         openingDate: inputToTs(opening),
         closingDate: inputToTs(closing),
-        status: active ? 'active' : 'inactive',
         updatedAt: serverTimestamp(),
       })
       toast.success(`${hotel.name} updated`)
@@ -68,8 +82,8 @@ function HotelDateRow({ hotel }) {
           </p>
         </div>
         <Badge
-          label={active ? 'Active' : 'Inactive'}
-          variant={active ? 'active' : 'inactive'}
+          label={hotel.isActive ? 'Active' : 'Inactive'}
+          variant={hotel.isActive ? 'active' : 'inactive'}
         />
       </div>
 
@@ -98,22 +112,27 @@ function HotelDateRow({ hotel }) {
 
       {/* Active toggle + Save */}
       <div className="flex items-center justify-between gap-3">
-        <label className="flex items-center gap-3 cursor-pointer">
-          <button
-            type="button"
-            onClick={() => setActive((v) => !v)}
+        <button
+          type="button"
+          onClick={handleToggleActive}
+          disabled={togglingActive}
+          className="flex items-center gap-3 disabled:opacity-60"
+        >
+          <div
             className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
-              active ? 'bg-brand-gold' : 'bg-brand-border'
+              hotel.isActive ? 'bg-brand-gold' : 'bg-brand-border'
             }`}
           >
             <span
               className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-                active ? 'translate-x-5' : 'translate-x-0'
+                hotel.isActive ? 'translate-x-5' : 'translate-x-0'
               }`}
             />
-          </button>
-          <span className="text-sm text-brand-text">Hotel Active</span>
-        </label>
+          </div>
+          <span className="text-sm text-brand-text">
+            {hotel.isActive ? 'Active' : 'Inactive'}
+          </span>
+        </button>
 
         <Button variant="primary" size="sm" loading={saving} onClick={save}>
           <Check size={14} />

@@ -1,16 +1,58 @@
+import { useState } from 'react'
 import Input from '../components/ui/Input'
 
+function isValidUrl(val) {
+  try {
+    const url = new URL(val)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch { return false }
+}
+
 export default function Contact({ data, onChange, errors }) {
+  const [phoneError, setPhoneError] = useState('')
+  const [websiteError, setWebsiteError] = useState('')
+
+  function handlePhoneChange(e) {
+    const digits = e.target.value.replace(/[^0-9]/g, '').slice(0, 10)
+    onChange({ contactPhone: digits })
+    if (phoneError) setPhoneError('')
+  }
+
+  function handlePhoneBlur() {
+    const val = data.contactPhone || ''
+    if (val && val.length !== 10) {
+      setPhoneError('Phone number must be exactly 10 digits')
+    } else {
+      setPhoneError('')
+    }
+  }
+
+  function handleWebsiteChange(e) {
+    onChange({ website: e.target.value })
+    if (websiteError) setWebsiteError('')
+  }
+
+  function handleWebsiteBlur() {
+    const val = data.website || ''
+    if (val && !isValidUrl(val)) {
+      setWebsiteError('Must be a valid URL starting with https://')
+    } else {
+      setWebsiteError('')
+    }
+  }
+
   return (
     <div className="space-y-4">
       <Input
         label="Phone Number"
         required
         type="tel"
-        placeholder="+91 99999 99999"
+        placeholder="9999999999"
         value={data.contactPhone || ''}
-        onChange={(e) => onChange({ contactPhone: e.target.value })}
-        error={errors?.contactPhone}
+        onChange={handlePhoneChange}
+        onBlur={handlePhoneBlur}
+        error={errors?.contactPhone || phoneError}
+        hint="10-digit mobile number"
       />
 
       <Input
@@ -28,8 +70,9 @@ export default function Contact({ data, onChange, errors }) {
         type="url"
         placeholder="https://www.hotel.com"
         value={data.website || ''}
-        onChange={(e) => onChange({ website: e.target.value })}
-        error={errors?.website}
+        onChange={handleWebsiteChange}
+        onBlur={handleWebsiteBlur}
+        error={errors?.website || websiteError}
       />
 
       <Input

@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react'
 import Input from '../components/ui/Input'
-import RefComboSelect from '../components/ui/RefComboSelect'
+import SearchableSelect from '../components/ui/SearchableSelect'
 import { COLLECTIONS } from '../schema'
 
 const HIGHLIGHT_CATEGORY_SEEDS = ['hotel', 'shared', 'outdoor', 'cultural', 'water', 'wellness', 'entertainment']
@@ -56,7 +56,7 @@ export default function PropertyHighlights({ data, onChange }) {
           />
 
           <div className="grid grid-cols-2 gap-3">
-            <RefComboSelect
+            <SearchableSelect
               label="Category"
               placeholder="Select"
               collectionName={COLLECTIONS.highlightCategories}
@@ -64,7 +64,7 @@ export default function PropertyHighlights({ data, onChange }) {
               value={h.categoryId || ''}
               onSelect={(id, name) => update(idx, { categoryId: id, category: name })}
             />
-            <RefComboSelect
+            <SearchableSelect
               label="Amenity Type"
               placeholder="Select"
               collectionName={COLLECTIONS.amenityTypes}

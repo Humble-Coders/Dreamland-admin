@@ -7,12 +7,28 @@ import OpeningDate from './pages/OpeningDate'
 import RoomCategories from './pages/RoomCategories'
 import HotelDetail from './pages/HotelDetail'
 import AppSettings from './pages/AppSettings'
+import Login from './pages/Login'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { useState, useCallback } from 'react'
+import { Loader2 } from 'lucide-react'
 
-export default function App() {
+function AdminApp() {
+  const { user, loading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const closeSidebar = useCallback(() => setSidebarOpen(false), [])
   const openSidebar = useCallback(() => setSidebarOpen(true), [])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-brand-bg flex items-center justify-center">
+        <Loader2 size={32} className="text-brand-gold animate-spin" />
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <Login />
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-brand-bg">
@@ -73,5 +89,13 @@ export default function App() {
         }}
       />
     </div>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AdminApp />
+    </AuthProvider>
   )
 }
